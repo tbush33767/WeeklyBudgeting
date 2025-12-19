@@ -38,7 +38,95 @@
 
 .header-actions {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
+}
+
+/* Backup Menu */
+.backup-menu-container {
+  position: relative;
+}
+
+.btn-icon-header {
+  padding: 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-header .material-symbols-rounded {
+  font-size: 1.25rem;
+}
+
+.btn-icon-header:hover {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.backup-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.backup-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  min-width: 200px;
+  z-index: 100;
+  overflow: hidden;
+  animation: menuSlideIn 0.15s ease;
+}
+
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.backup-menu button {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: background 0.15s ease;
+}
+
+.backup-menu button:hover {
+  background: var(--surface-hover);
+}
+
+.backup-menu button .material-symbols-rounded {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+}
+
+.backup-menu button:first-child {
+  border-bottom: 1px solid var(--border-color);
 }
 
 .btn-add {
@@ -94,6 +182,7 @@
   margin: 0 auto;
   padding: 1rem 1.5rem 0;
   display: flex;
+  justify-content: center;
   gap: 0.5rem;
   border-bottom: 1px solid var(--border-color);
 }

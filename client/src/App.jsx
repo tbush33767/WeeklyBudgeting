@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { addWeeks, subWeeks } from 'date-fns';
 import Dashboard from './components/Dashboard';
 import ExpenseList from './components/ExpenseList';
@@ -16,6 +16,8 @@ import {
   createIncome,
   updateIncome,
   deleteIncome,
+  exportBackup,
+  importBackup,
 } from './api/expenses';
 import './App.css';
 
@@ -31,6 +33,8 @@ function App() {
   const [editingIncome, setEditingIncome] = useState(null);
   const [activeTab, setActiveTab] = useState('weekly');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showBackupMenu, setShowBackupMenu] = useState(false);
+  const fileInputRef = useRef(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -118,6 +122,68 @@ function App() {
   const handleNextWeek = () => setSelectedDate(prev => addWeeks(prev, 1));
   const handleToday = () => setSelectedDate(new Date());
 
+  // Backup handlers
+  const handleExportBackup = async () => {
+    try {
+      const backup = await exportBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `budget-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setShowBackupMenu(false);
+    } catch (err) {
+      console.error('Failed to export backup:', err);
+      alert('Failed to export backup. Please try again.');
+    }
+  };
+
+  const handleImportBackup = () => {
+    fileInputRef.current?.click();
+    setShowBackupMenu(false);
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      
+      if (!backup.data) {
+        alert('Invalid backup file format');
+        return;
+      }
+
+      const clearExisting = confirm(
+        'Do you want to replace all existing data?\n\n' +
+        'Click OK to replace everything with the backup.\n' +
+        'Click Cancel to merge the backup with existing data.'
+      );
+
+      const result = await importBackup(backup.data, clearExisting);
+      alert(`Backup restored successfully!\n\nImported:\n` +
+        `• ${result.counts.expenses} expenses\n` +
+        `• ${result.counts.income} income sources\n` +
+        `• ${result.counts.paid_expenses} payment records\n` +
+        `• ${result.counts.quick_expenses} quick expenses`
+      );
+      
+      await loadData();
+    } catch (err) {
+      console.error('Failed to import backup:', err);
+      alert('Failed to import backup. Make sure the file is a valid backup JSON.');
+    }
+    
+    // Reset the input
+    e.target.value = '';
+  };
+
   if (loading) {
     return (
       <div className="app-loading">
@@ -149,6 +215,37 @@ function App() {
             Weekly Budget
           </h1>
           <div className="header-actions">
+            <div className="backup-menu-container">
+              <button 
+                className="btn-icon-header" 
+                onClick={() => setShowBackupMenu(!showBackupMenu)}
+                title="Backup & Restore"
+              >
+                <span className="material-symbols-rounded">settings_backup_restore</span>
+              </button>
+              {showBackupMenu && (
+                <>
+                  <div className="backup-menu-overlay" onClick={() => setShowBackupMenu(false)} />
+                  <div className="backup-menu">
+                    <button onClick={handleExportBackup}>
+                      <span className="material-symbols-rounded">download</span>
+                      Export Backup
+                    </button>
+                    <button onClick={handleImportBackup}>
+                      <span className="material-symbols-rounded">upload</span>
+                      Restore from Backup
+                    </button>
+                  </div>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+              />
+            </div>
             <button className="btn-add" onClick={() => setShowExpenseForm(true)}>
               <span className="material-symbols-rounded">add</span>
               Add Expense

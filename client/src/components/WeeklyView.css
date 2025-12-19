@@ -3,12 +3,11 @@
 }
 
 .weekly-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
   margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+}
+
+.week-info {
+  margin-bottom: 1rem;
 }
 
 .week-info h2 {
@@ -19,6 +18,209 @@
 }
 
 
+/* Budget Breakdown - New Card Layout */
+.budget-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.budget-section {
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.budget-section .section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.25rem;
+}
+
+.budget-section .section-header .material-symbols-rounded {
+  font-size: 1rem;
+}
+
+.budget-section.money-in .section-header {
+  color: var(--color-savings);
+}
+
+.budget-section.money-out .section-header {
+  color: var(--color-debt);
+}
+
+.budget-section.discretionary .section-header {
+  color: var(--color-accent);
+}
+
+.budget-section.reality-check .section-header {
+  color: var(--color-bill);
+}
+
+.budget-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.375rem 0;
+}
+
+.budget-row .row-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.budget-row .row-label .material-symbols-rounded {
+  font-size: 1rem;
+}
+
+.budget-row .row-hint {
+  color: var(--color-savings);
+  font-size: 0.75rem;
+}
+
+.budget-row .row-amount {
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.budget-row .row-amount.positive {
+  color: var(--color-savings);
+}
+
+.budget-row .row-amount.negative {
+  color: var(--color-debt);
+}
+
+.budget-row .row-amount.big {
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+
+.budget-row.total,
+.budget-row.subtotal {
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+}
+
+.budget-row.total .row-label,
+.budget-row.subtotal .row-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.budget-row.result .row-label {
+  color: var(--text-primary);
+}
+
+.budget-row.remaining-row {
+  background: rgba(99, 102, 241, 0.1);
+  margin: 0.25rem -0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+.budget-row.remaining-row .row-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.budget-row.clickable {
+  cursor: pointer;
+  margin: 0 -0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.budget-row.clickable:hover {
+  background: var(--surface-hover);
+}
+
+.budget-row .edit-icon {
+  font-size: 0.875rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  color: var(--text-muted);
+}
+
+.budget-row.clickable:hover .edit-icon {
+  opacity: 0.7;
+}
+
+.budget-row.untracked.warning {
+  background: rgba(239, 68, 68, 0.1);
+  margin: 0.25rem -0.5rem 0;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+
+.budget-row.untracked.bonus {
+  background: rgba(34, 197, 94, 0.1);
+  margin: 0.25rem -0.5rem 0;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+
+.budget-section .remaining-hint,
+.budget-section .actual-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0;
+  font-style: italic;
+}
+
+.inline-input {
+  display: flex;
+  align-items: center;
+  background: var(--surface-base);
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  padding: 0 0.25rem;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.inline-input .currency-symbol {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  padding-left: 0.25rem;
+}
+
+.inline-input input {
+  width: 80px;
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.inline-input input:focus {
+  outline: none;
+}
+
+/* Legacy summary styles - keep for compatibility */
 .weekly-summary {
   display: flex;
   gap: 2rem;
@@ -277,6 +479,57 @@
   line-height: 1;
 }
 
+/* Clickable expense amount for editing */
+.day-expense .expense-amount.clickable-amount {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  padding: 0.125rem 0.25rem;
+  margin: -0.125rem -0.25rem;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.day-expense .expense-amount.clickable-amount:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.day-expense .expense-amount .edit-amount-icon {
+  font-size: 0.625rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  color: var(--text-muted);
+}
+
+.day-expense:hover .expense-amount .edit-amount-icon {
+  opacity: 0.6;
+}
+
+.day-expense .expense-amount.clickable-amount:hover .edit-amount-icon {
+  opacity: 1;
+}
+
+.day-expense .expense-amount .original-amount {
+  text-decoration: line-through;
+  opacity: 0.5;
+  font-size: 0.65rem;
+}
+
+.day-expense.has-override {
+  border-left-color: var(--color-living);
+}
+
+.day-expense.has-override .expense-amount {
+  color: var(--color-living);
+}
+
+.expense-tooltip .tooltip-modified {
+  color: var(--color-living);
+  font-style: italic;
+  font-size: 0.7rem;
+}
+
 .weekly-summary .summary-item .amount.paid {
   color: var(--color-savings);
 }
@@ -353,5 +606,508 @@
 
 .weekly-summary .summary-item.income .amount {
   color: var(--color-savings);
+}
+
+
+/* Partial Payment Styles */
+.day-expense.is-partial {
+  background: linear-gradient(to right, 
+    rgba(34, 197, 94, 0.1) 0%, 
+    rgba(34, 197, 94, 0.1) var(--percent-paid), 
+    var(--surface-base) var(--percent-paid), 
+    var(--surface-base) 100%
+  );
+  border-left-color: var(--color-bill);
+}
+
+.day-expense.is-partial .expense-amount {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.paid-checkbox.partial {
+  color: var(--color-bill);
+}
+
+.expense-tooltip .tooltip-partial {
+  color: var(--color-savings);
+}
+
+/* Payment Modal */
+.payment-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.payment-modal {
+  background: var(--surface-elevated);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.payment-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.payment-modal-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.payment-modal-header h3 .material-symbols-rounded {
+  color: var(--color-accent);
+}
+
+.payment-modal-header .btn-close {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.payment-modal-header .btn-close:hover {
+  background: var(--surface-base);
+  color: var(--text-primary);
+}
+
+.payment-modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.payment-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--surface-base);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-savings);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.progress-labels span:first-child {
+  color: var(--color-savings);
+  font-weight: 500;
+}
+
+.payment-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.payment-input-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.payment-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--surface-base);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.payment-input-wrapper:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.payment-input-wrapper .currency-symbol {
+  padding: 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.payment-input-wrapper input {
+  flex: 1;
+  padding: 0.75rem 1rem 0.75rem 0;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.payment-input-wrapper input:focus {
+  outline: none;
+}
+
+.remaining-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.payment-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.payment-actions .btn-primary,
+.payment-actions .btn-secondary {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+
+.payment-actions .btn-primary {
+  background: var(--color-accent);
+  color: white;
+  border: none;
+}
+
+.payment-actions .btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.payment-actions .btn-secondary {
+  background: transparent;
+  color: var(--color-savings);
+  border: 1px solid var(--color-savings);
+}
+
+.payment-actions .btn-secondary:hover {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.fully-paid-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 8px;
+  color: var(--color-savings);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.fully-paid-message .material-symbols-rounded {
+  font-size: 1.5rem;
+}
+
+.btn-clear {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  transition: all 0.15s ease;
+}
+
+.btn-clear:hover {
+  border-color: var(--color-debt);
+  color: var(--color-debt);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+/* Clickable Income Styles */
+.day-income.clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.day-income.clickable:hover {
+  background: rgba(34, 197, 94, 0.2);
+  transform: translateY(-1px);
+}
+
+.day-income.has-override {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.day-income.has-override .income-icon {
+  color: var(--color-savings);
+}
+
+.day-income .original-amount {
+  text-decoration: line-through;
+  opacity: 0.5;
+  font-size: 0.65rem;
+  margin-right: 0.25rem;
+}
+
+/* Income Modal Styles */
+.income-modal .payment-modal-header h3 .material-symbols-rounded {
+  color: var(--color-savings);
+}
+
+.income-expected {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--surface-base);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.income-expected .label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.income-expected .expected-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.payment-input-wrapper.income-input {
+  border-color: var(--color-savings);
+}
+
+.payment-input-wrapper.income-input:focus-within {
+  border-color: var(--color-savings);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+.btn-primary.income-save {
+  background: var(--color-savings);
+}
+
+.btn-primary.income-save:hover {
+  filter: brightness(1.1);
+}
+
+
+/* Quick Expenses Section */
+.quick-expenses-section {
+  margin-top: 1.5rem;
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.quick-expenses-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.quick-expenses-header h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.quick-expenses-header h3 .material-symbols-rounded {
+  font-size: 1.125rem;
+  color: var(--color-debt);
+}
+
+.btn-add-quick {
+  background: var(--surface-base);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.btn-add-quick:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.btn-add-quick .material-symbols-rounded {
+  font-size: 1.125rem;
+}
+
+.quick-expenses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.quick-expense-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-base);
+  border-radius: 8px;
+  border-left: 3px solid var(--color-debt);
+}
+
+.quick-expense-name {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.quick-expense-amount {
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-debt);
+}
+
+.quick-expense-delete {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: all 0.15s ease;
+  border-radius: 4px;
+}
+
+.quick-expense-delete:hover {
+  opacity: 1;
+  color: var(--color-debt);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.quick-expense-delete .material-symbols-rounded {
+  font-size: 1rem;
+}
+
+/* Quick Expense Modal */
+.quick-expense-modal .payment-modal-header h3 .material-symbols-rounded {
+  color: var(--color-debt);
+}
+
+.quick-expense-name-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--surface-base);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.quick-expense-name-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.quick-expense-name-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Expense Amount Override Modal */
+.expense-amount-modal .income-expected {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.expense-amount-modal .income-expected .label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.expense-amount-modal .income-expected .expected-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
 }
 

@@ -4,6 +4,32 @@
   gap: 1.5rem;
 }
 
+/* Total Expenses Header */
+.expense-total-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, var(--surface-elevated) 0%, rgba(239, 68, 68, 0.1) 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.expense-total-header .total-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.expense-total-header .total-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-debt);
+}
+
 .expense-list-empty {
   display: flex;
   flex-direction: column;
@@ -30,8 +56,8 @@
 
 .group-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
   padding: 1rem 1.25rem;
   background: var(--surface-base);
   font-size: 0.875rem;
@@ -41,8 +67,23 @@
   letter-spacing: 0.05em;
 }
 
+.group-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .group-header .icon {
   font-size: 1.25rem;
+}
+
+.group-header .category-total {
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-debt);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .expense-items {

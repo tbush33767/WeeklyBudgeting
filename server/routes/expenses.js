@@ -3,6 +3,13 @@ import db from '../db/database.js';
 
 const router = Router();
 
+// Helper to get the effective due day for a given month
+// If due_day is 31 but month only has 30 days, returns 30
+const getEffectiveDueDay = (dueDay, date) => {
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  return Math.min(dueDay, lastDay);
+};
+
 // Get all expenses
 router.get('/', (req, res) => {
   try {
@@ -38,7 +45,8 @@ router.get('/weekly/:date', (req, res) => {
         // One-time expenses: check if due_day matches any day in this week
         const dueDay = expense.due_day;
         for (let d = new Date(startOfWeek); d <= endOfWeek; d.setDate(d.getDate() + 1)) {
-          if (d.getDate() === dueDay) return true;
+          const effectiveDueDay = getEffectiveDueDay(dueDay, d);
+          if (d.getDate() === effectiveDueDay) return true;
         }
         return false;
       } else if (expense.frequency === 'weekly') {
@@ -51,9 +59,11 @@ router.get('/weekly/:date', (req, res) => {
         return weekNumber % 2 === 0;
       } else if (expense.frequency === 'monthly') {
         // Monthly: check if the due_day falls within this week
+        // Handle months with fewer days (e.g., due_day 31 in Feb becomes 28/29)
         const dueDay = expense.due_day;
         for (let d = new Date(startOfWeek); d <= endOfWeek; d.setDate(d.getDate() + 1)) {
-          if (d.getDate() === dueDay) return true;
+          const effectiveDueDay = getEffectiveDueDay(dueDay, d);
+          if (d.getDate() === effectiveDueDay) return true;
         }
         return false;
       }
@@ -73,18 +83,18 @@ router.get('/weekly/:date', (req, res) => {
 // Create a new expense
 router.post('/', (req, res) => {
   try {
-    const { name, amount, category, frequency, due_day } = req.body;
+    const { name, amount, category, frequency, due_day, start_date } = req.body;
     
     if (!name || amount === undefined || !category || !frequency) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const stmt = db.prepare(`
-      INSERT INTO expenses (name, amount, category, frequency, due_day, is_active)
-      VALUES (?, ?, ?, ?, ?, 1)
+      INSERT INTO expenses (name, amount, category, frequency, due_day, start_date, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
     `);
     
-    const result = stmt.run(name, amount, category, frequency, due_day || null);
+    const result = stmt.run(name, amount, category, frequency, due_day || null, start_date || null);
     
     const newExpense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newExpense);
@@ -97,7 +107,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, amount, category, frequency, due_day, is_active } = req.body;
+    const { name, amount, category, frequency, due_day, start_date, is_active } = req.body;
 
     const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
     if (!existing) {
@@ -106,7 +116,7 @@ router.put('/:id', (req, res) => {
 
     const stmt = db.prepare(`
       UPDATE expenses 
-      SET name = ?, amount = ?, category = ?, frequency = ?, due_day = ?, is_active = ?
+      SET name = ?, amount = ?, category = ?, frequency = ?, due_day = ?, start_date = ?, is_active = ?
       WHERE id = ?
     `);
     
@@ -116,6 +126,7 @@ router.put('/:id', (req, res) => {
       category ?? existing.category,
       frequency ?? existing.frequency,
       due_day ?? existing.due_day,
+      start_date !== undefined ? start_date : existing.start_date,
       is_active ?? existing.is_active,
       id
     );

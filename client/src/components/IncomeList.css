@@ -10,6 +10,32 @@
   align-items: flex-start;
 }
 
+/* Total Income Header */
+.income-total-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, var(--surface-elevated) 0%, rgba(34, 197, 94, 0.15) 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.income-total-header .total-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.income-total-header .total-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-savings);
+}
+
 .income-title h2 {
   font-size: 1.5rem;
   font-weight: 600;
@@ -46,44 +72,50 @@
   font-size: 1.25rem;
 }
 
-.income-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.summary-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
-  background: var(--surface-elevated);
-  border-radius: 12px;
-  border-left: 4px solid var(--color-savings);
-}
-
-.summary-card > .material-symbols-rounded {
-  font-size: 2rem;
-  color: var(--color-savings);
-}
-
-.summary-info {
+/* Income Groups */
+.income-groups {
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
 }
 
-.summary-info .label {
-  font-size: 0.75rem;
+.income-group {
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.income-group .group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: var(--surface-base);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
+  margin: 0;
 }
 
-.summary-info .amount {
-  font-size: 1.5rem;
+.income-group .group-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.income-group .group-header .icon {
+  font-size: 1.25rem;
+}
+
+.income-group .group-header .frequency-total {
+  font-size: 1rem;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--color-savings);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .income-empty {
@@ -106,7 +138,6 @@
 .income-items {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
 }
 
 .income-item {
@@ -114,9 +145,12 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  background: var(--surface-elevated);
-  border-radius: 12px;
+  border-bottom: 1px solid var(--border-color);
   transition: all 0.15s ease;
+}
+
+.income-item:last-child {
+  border-bottom: none;
 }
 
 .income-item:hover {

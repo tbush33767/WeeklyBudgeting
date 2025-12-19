@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import './ExpenseForm.css';
 
 const categories = [
@@ -22,6 +23,7 @@ export default function ExpenseForm({ expense, onSubmit, onCancel }) {
     category: 'bill',
     frequency: 'monthly',
     due_day: '',
+    start_date: '',
     is_active: true,
   });
 
@@ -33,8 +35,15 @@ export default function ExpenseForm({ expense, onSubmit, onCancel }) {
         category: expense.category,
         frequency: expense.frequency,
         due_day: expense.due_day?.toString() || '',
+        start_date: expense.start_date || '',
         is_active: Boolean(expense.is_active),
       });
+    } else {
+      // Default to today for new biweekly expense
+      setFormData(prev => ({
+        ...prev,
+        start_date: format(new Date(), 'yyyy-MM-dd'),
+      }));
     }
   }, [expense]);
 
@@ -52,11 +61,13 @@ export default function ExpenseForm({ expense, onSubmit, onCancel }) {
       ...formData,
       amount: parseFloat(formData.amount),
       due_day: formData.due_day ? parseInt(formData.due_day) : null,
+      start_date: formData.frequency === 'biweekly' ? formData.start_date : null,
       is_active: formData.is_active ? 1 : 0,
     });
   };
 
   const showDueDay = formData.frequency === 'monthly' || formData.frequency === 'one-time';
+  const showStartDate = formData.frequency === 'biweekly';
 
   return (
     <div className="expense-form-overlay">
@@ -151,6 +162,23 @@ export default function ExpenseForm({ expense, onSubmit, onCancel }) {
                 placeholder="1-31"
                 min="1"
                 max="31"
+              />
+            </div>
+          </div>
+        )}
+
+        {showStartDate && (
+          <div className="form-group">
+            <label htmlFor="start_date">First Due Date</label>
+            <p className="form-hint">Select a date to sync the biweekly schedule</p>
+            <div className="input-with-icon">
+              <span className="material-symbols-rounded input-icon">calendar_today</span>
+              <input
+                type="date"
+                id="start_date"
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleChange}
               />
             </div>
           </div>

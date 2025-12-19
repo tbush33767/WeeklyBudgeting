@@ -1,18 +1,11 @@
 .week-navigation {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto 1fr;
+  display: flex;
+  justify-content: center;
   align-items: center;
   gap: 0.5rem;
   padding: 1rem 0;
   margin-bottom: 1rem;
-}
-
-.week-navigation > :first-child {
-  justify-self: end;
-}
-
-.week-navigation > :last-child {
-  justify-self: start;
+  position: relative;
 }
 
 .nav-btn {
@@ -71,7 +64,8 @@
 }
 
 .today-btn-container {
-  min-width: 100px;
+  position: absolute;
+  right: 0;
 }
 
 .today-btn {
