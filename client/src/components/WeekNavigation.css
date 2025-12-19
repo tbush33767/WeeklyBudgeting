@@ -1,0 +1,99 @@
+.week-navigation {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  margin-bottom: 1rem;
+}
+
+.week-navigation > :first-child {
+  justify-self: end;
+}
+
+.week-navigation > :last-child {
+  justify-self: start;
+}
+
+.nav-btn {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.nav-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.nav-btn .material-symbols-rounded {
+  font-size: 1.5rem;
+}
+
+.week-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--surface-elevated);
+  border-radius: 8px;
+  width: 320px;
+  justify-content: center;
+}
+
+.week-display .material-symbols-rounded {
+  font-size: 1.25rem;
+  color: var(--color-accent);
+}
+
+.week-dates {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.current-badge {
+  font-size: 0.625rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-accent);
+  color: white;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.today-btn-container {
+  min-width: 100px;
+}
+
+.today-btn {
+  background: var(--color-accent);
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.today-btn:hover {
+  background: var(--color-accent-hover);
+}
+
+.today-btn .material-symbols-rounded {
+  font-size: 1.125rem;
+}
+

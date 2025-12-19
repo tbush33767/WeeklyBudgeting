@@ -1,0 +1,173 @@
+.paycheck-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.paycheck-settings {
+  background: var(--surface-elevated);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+  animation: slideUp 0.3s ease;
+}
+
+.paycheck-settings .form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.paycheck-settings h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.paycheck-settings h3 .material-symbols-rounded {
+  color: var(--color-savings);
+}
+
+.paycheck-settings .btn-close {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.paycheck-settings .btn-close:hover {
+  background: var(--surface-base);
+  color: var(--text-primary);
+}
+
+.paycheck-settings .input-with-icon {
+  display: flex;
+  align-items: center;
+  background: var(--surface-base);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.paycheck-settings .input-with-icon:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.paycheck-settings .input-with-icon .input-icon {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  width: 3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.paycheck-settings .input-with-icon input {
+  flex: 1;
+  padding: 0.75rem 1rem 0.75rem 0.25rem;
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.paycheck-settings .input-with-icon input:focus {
+  outline: none;
+}
+
+.paycheck-settings .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.paycheck-settings .form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.paycheck-settings .form-group input,
+.paycheck-settings .form-group select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--surface-base);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.paycheck-settings .form-group input:focus,
+.paycheck-settings .form-group select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.paycheck-settings .form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.paycheck-settings .btn-primary,
+.paycheck-settings .btn-secondary {
+  flex: 1;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.paycheck-settings .btn-primary {
+  background: var(--color-savings);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.paycheck-settings .btn-primary .material-symbols-rounded {
+  font-size: 1.25rem;
+}
+
+.paycheck-settings .btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.paycheck-settings .btn-secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.paycheck-settings .btn-secondary:hover {
+  background: var(--surface-base);
+  color: var(--text-primary);
+}
+

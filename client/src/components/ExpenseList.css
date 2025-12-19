@@ -1,0 +1,147 @@
+.expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.expense-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  color: var(--text-muted);
+}
+
+.expense-list-empty .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.4;
+  color: var(--text-muted);
+}
+
+.expense-group {
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface-base);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.group-header .icon {
+  font-size: 1.25rem;
+}
+
+.expense-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.expense-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s ease;
+}
+
+.expense-item:last-child {
+  border-bottom: none;
+}
+
+.expense-item:hover {
+  background: var(--surface-hover);
+}
+
+.expense-item.inactive {
+  opacity: 0.5;
+}
+
+.expense-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.expense-info .name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.expense-info .meta {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.expense-info .frequency {
+  padding: 0.125rem 0.5rem;
+  background: var(--surface-base);
+  border-radius: 4px;
+}
+
+.expense-amount {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.expense-amount .amount {
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-debt);
+}
+
+.expense-amount .actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.expense-item:hover .actions {
+  opacity: 1;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon .material-symbols-rounded {
+  font-size: 1.25rem;
+}
+
+.btn-icon:hover {
+  background: var(--surface-base);
+  color: var(--text-primary);
+}
+
+.btn-icon.delete:hover {
+  color: var(--color-debt);
+}
+

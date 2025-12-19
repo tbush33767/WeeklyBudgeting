@@ -1,0 +1,357 @@
+.weekly-view {
+  margin-top: 2rem;
+}
+
+.weekly-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.week-info h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+
+.weekly-summary {
+  display: flex;
+  gap: 2rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.summary-item .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.summary-item .amount {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.summary-item .amount.expense {
+  color: var(--color-debt);
+}
+
+.summary-item .amount.positive {
+  color: var(--color-savings);
+}
+
+.summary-item .amount.negative {
+  color: var(--color-debt);
+}
+
+.week-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .week-calendar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.day-column {
+  background: var(--surface-elevated);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+}
+
+.day-column.today {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+.day-column.payday {
+  background: linear-gradient(135deg, var(--surface-elevated) 0%, rgba(34, 197, 94, 0.1) 100%);
+}
+
+.day-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.day-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.day-date {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.payday-badge {
+  font-size: 0.625rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-savings);
+  color: white;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.payday-badge .material-symbols-rounded {
+  font-size: 0.875rem;
+}
+
+.day-expenses {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.no-expenses {
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.day-expense {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  background: var(--surface-base);
+  border-radius: 6px;
+  border-left: 3px solid var(--cat-color, var(--border-color));
+  cursor: pointer;
+  transition: all 0.15s ease;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.day-expense:hover {
+  background: var(--surface-hover);
+}
+
+.expense-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111318;
+  border: 1px solid #3d4450;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  pointer-events: none;
+}
+
+.expense-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #111318;
+}
+
+.day-expense:hover .expense-tooltip {
+  opacity: 1 !important;
+  visibility: visible;
+}
+
+.day-expense.is-paid:hover .expense-tooltip {
+  opacity: 1 !important;
+}
+
+.expense-tooltip strong {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.expense-tooltip span {
+  font-size: 0.875rem;
+  font-family: var(--font-mono);
+  color: var(--color-debt);
+}
+
+.expense-tooltip .tooltip-meta {
+  font-size: 0.75rem;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.day-expense.is-paid {
+  background: rgba(34, 197, 94, 0.05);
+  border-left-color: var(--color-savings);
+}
+
+.day-expense.is-paid .paid-checkbox,
+.day-expense.is-paid .expense-name,
+.day-expense.is-paid .expense-amount {
+  opacity: 0.6;
+}
+
+.day-expense.is-paid .expense-name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.day-expense.is-paid .expense-amount {
+  color: var(--text-muted);
+}
+
+.paid-checkbox {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+  width: 1.125rem;
+  flex-shrink: 0;
+}
+
+.paid-checkbox .material-symbols-rounded {
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.paid-checkbox.checked {
+  color: var(--color-savings);
+}
+
+.day-expense .expense-name {
+  flex: 1;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+}
+
+.day-expense .expense-amount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-debt);
+  line-height: 1;
+}
+
+.weekly-summary .summary-item .amount.paid {
+  color: var(--color-savings);
+}
+
+.day-total {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.day-income-total {
+  color: var(--color-savings);
+}
+
+.day-expense-total {
+  color: var(--color-debt);
+}
+
+.day-income {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 6px;
+  border-left: 3px solid var(--color-savings);
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.day-income .income-icon {
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--color-savings);
+  width: 1.125rem;
+  height: 1.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.day-income .income-name {
+  flex: 1;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+}
+
+.day-income .income-amount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-savings);
+  line-height: 1;
+}
+
+.no-income-note {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.weekly-summary .summary-item.income .amount {
+  color: var(--color-savings);
+}
+

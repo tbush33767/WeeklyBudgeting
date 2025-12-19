@@ -1,0 +1,199 @@
+.income-form-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.income-form {
+  background: var(--surface-elevated);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 440px;
+  animation: slideUp 0.3s ease;
+}
+
+.income-form .form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.income-form .form-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.income-form .form-header h3 .material-symbols-rounded {
+  color: var(--color-savings);
+}
+
+.income-form .btn-close {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.income-form .btn-close:hover {
+  background: var(--surface-base);
+  color: var(--text-primary);
+}
+
+.income-form .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.income-form .form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.income-form .form-group input[type="text"],
+.income-form .form-group input[type="number"],
+.income-form .form-group select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--surface-base);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.income-form .form-group input:focus,
+.income-form .form-group select:focus {
+  outline: none;
+  border-color: var(--color-savings);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.income-form .form-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.income-form .input-with-icon {
+  display: flex;
+  align-items: center;
+  background: var(--surface-base);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.income-form .input-with-icon:focus-within {
+  border-color: var(--color-savings);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.income-form .input-with-icon .input-icon {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  width: 3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.income-form .input-with-icon input {
+  flex: 1;
+  padding: 0.75rem 1rem 0.75rem 0.25rem;
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.income-form .input-with-icon input:focus {
+  outline: none;
+}
+
+.income-form .checkbox-group {
+  margin-top: 0.5rem;
+}
+
+.income-form .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.income-form .checkbox-label input {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--color-savings);
+}
+
+.income-form .form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.income-form .btn-primary,
+.income-form .btn-secondary {
+  flex: 1;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.income-form .btn-primary {
+  background: var(--color-savings);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.income-form .btn-primary .material-symbols-rounded {
+  font-size: 1.25rem;
+}
+
+.income-form .btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.income-form .btn-secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.income-form .btn-secondary:hover {
+  background: var(--surface-base);
+  color: var(--text-primary);
+}
+
