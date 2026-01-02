@@ -91,3 +91,14 @@ CREATE TABLE IF NOT EXISTS weekly_expenses (
     FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE
 );
 
+-- Track due date overrides per week (allows changing when an expense is due for a specific week)
+CREATE TABLE IF NOT EXISTS weekly_due_days (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expense_id INTEGER NOT NULL,
+    week_start TEXT NOT NULL,
+    due_date TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(expense_id, week_start),
+    FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE
+);
+

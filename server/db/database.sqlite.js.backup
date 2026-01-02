@@ -1,0 +1,165 @@
+import Database from 'better-sqlite3';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Create or open the database
+const db = new Database(join(__dirname, 'budget.db'));
+
+// Enable foreign keys
+db.pragma('journal_mode = WAL');
+
+// Initialize schema
+const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
+db.exec(schema);
+
+// Migration: Add start_date column to income table if it doesn't exist
+try {
+  const columns = db.prepare("PRAGMA table_info(income)").all();
+  const hasStartDate = columns.some(col => col.name === 'start_date');
+  if (!hasStartDate) {
+    db.exec('ALTER TABLE income ADD COLUMN start_date TEXT');
+    console.log('Added start_date column to income table');
+  }
+} catch (e) {
+  // Table might not exist yet, that's ok
+}
+
+// Migration: Add start_date column to expenses table if it doesn't exist
+try {
+  const columns = db.prepare("PRAGMA table_info(expenses)").all();
+  const hasStartDate = columns.some(col => col.name === 'start_date');
+  if (!hasStartDate) {
+    db.exec('ALTER TABLE expenses ADD COLUMN start_date TEXT');
+    console.log('Added start_date column to expenses table');
+  }
+} catch (e) {
+  // Table might not exist yet, that's ok
+}
+
+// Migration: Add amount_paid column to paid_expenses for partial payments
+try {
+  const columns = db.prepare("PRAGMA table_info(paid_expenses)").all();
+  const hasAmountPaid = columns.some(col => col.name === 'amount_paid');
+  if (!hasAmountPaid) {
+    // Add the amount_paid column
+    db.exec('ALTER TABLE paid_expenses ADD COLUMN amount_paid REAL');
+    
+    // Update existing records to use the full expense amount
+    db.exec(`
+      UPDATE paid_expenses 
+      SET amount_paid = (
+        SELECT amount FROM expenses WHERE expenses.id = paid_expenses.expense_id
+      )
+      WHERE amount_paid IS NULL
+    `);
+    console.log('Added amount_paid column to paid_expenses table');
+  }
+} catch (e) {
+  // Table might not exist yet, that's ok
+}
+
+// Migration: Create weekly_due_days table if it doesn't exist
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS weekly_due_days (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      expense_id INTEGER NOT NULL,
+      week_start TEXT NOT NULL,
+      due_date TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(expense_id, week_start),
+      FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('Created weekly_due_days table');
+  
+  // Migration: Handle transition from due_day to due_date
+  try {
+    const columns = db.prepare("PRAGMA table_info(weekly_due_days)").all();
+    const hasDueDate = columns.some(col => col.name === 'due_date');
+    const hasDueDay = columns.some(col => col.name === 'due_day');
+    const dueDayColumn = columns.find(col => col.name === 'due_day');
+    const dueDayIsNotNull = dueDayColumn && dueDayColumn.notnull === 1;
+    
+    // If table has due_day as NOT NULL, we need to fix it
+    if (hasDueDay && dueDayIsNotNull && hasDueDate) {
+      // Recreate table without due_day column
+      console.log('Recreating weekly_due_days table to remove due_day column...');
+      
+      // Backup existing data
+      const existingData = db.prepare(`
+        SELECT expense_id, week_start, due_date, created_at 
+        FROM weekly_due_days
+      `).all();
+      
+      // Drop old table
+      db.exec('DROP TABLE weekly_due_days');
+      
+      // Create new table with correct structure
+      db.exec(`
+        CREATE TABLE weekly_due_days (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          expense_id INTEGER NOT NULL,
+          week_start TEXT NOT NULL,
+          due_date TEXT NOT NULL,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(expense_id, week_start),
+          FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE
+        )
+      `);
+      
+      // Restore data
+      const insertStmt = db.prepare(`
+        INSERT INTO weekly_due_days (expense_id, week_start, due_date, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      
+      for (const row of existingData) {
+        insertStmt.run(row.expense_id, row.week_start, row.due_date, row.created_at);
+      }
+      
+      console.log(`Recreated weekly_due_days table and restored ${existingData.length} records`);
+    } else if (!hasDueDate) {
+      // Add due_date column if it doesn't exist
+      db.exec('ALTER TABLE weekly_due_days ADD COLUMN due_date TEXT');
+      
+      // If there's existing data with due_day, migrate it
+      if (hasDueDay) {
+        // Get all records with due_day but no due_date
+        const records = db.prepare(`
+          SELECT id, week_start, due_day FROM weekly_due_days WHERE due_date IS NULL OR due_date = ''
+        `).all();
+        
+        for (const record of records) {
+          // Use the week_start date to determine the month/year, then use due_day
+          const weekDate = new Date(record.week_start);
+          const year = weekDate.getFullYear();
+          const month = weekDate.getMonth() + 1;
+          const lastDay = new Date(year, month, 0).getDate();
+          const day = Math.min(record.due_day, lastDay);
+          const monthStr = month < 10 ? `0${month}` : `${month}`;
+          const dayStr = day < 10 ? `0${day}` : `${day}`;
+          const dueDate = `${year}-${monthStr}-${dayStr}`;
+          
+          db.prepare(`
+            UPDATE weekly_due_days SET due_date = ? WHERE id = ?
+          `).run(dueDate, record.id);
+        }
+        
+        console.log(`Migrated ${records.length} weekly_due_days records from due_day to due_date`);
+      }
+    }
+  } catch (e) {
+    // Migration might have already run, that's ok
+    console.log('Migration check completed:', e.message);
+  }
+} catch (e) {
+  // Table might already exist, that's ok
+  console.log('Table creation/migration error:', e.message);
+}
+
+export default db;
+

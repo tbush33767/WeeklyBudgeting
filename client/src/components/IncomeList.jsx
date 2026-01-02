@@ -93,31 +93,31 @@ export default function IncomeList({ income, onAdd, onEdit, onDelete }) {
                 </span>
                 <span className="frequency-total">+${Math.round(frequencyTotals[frequency]).toLocaleString()}</span>
               </h3>
-              <div className="income-items">
+        <div className="income-items">
                 {items.map(inc => (
-                  <div key={inc.id} className={`income-item ${!inc.is_active ? 'inactive' : ''}`}>
-                    <div className="income-icon">
-                      <span className="material-symbols-rounded">payments</span>
-                    </div>
-                    <div className="income-info">
-                      <span className="name">{inc.name}</span>
-                      <div className="meta">
-                        <span className="pay-day">{dayLabels[inc.pay_day]}</span>
-                        {inc.frequency === 'biweekly' && inc.start_date && (
-                          <span className="start-date">from {format(parseISO(inc.start_date), 'MMM d')}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="income-amount">
+            <div key={inc.id} className={`income-item ${!inc.is_active ? 'inactive' : ''}`}>
+              <div className="income-icon">
+                <span className="material-symbols-rounded">payments</span>
+              </div>
+              <div className="income-info">
+                <span className="name">{inc.name}</span>
+                <div className="meta">
+                  <span className="pay-day">{dayLabels[inc.pay_day]}</span>
+                  {inc.frequency === 'biweekly' && inc.start_date && (
+                    <span className="start-date">from {format(parseISO(inc.start_date), 'MMM d')}</span>
+                  )}
+                </div>
+              </div>
+              <div className="income-amount">
                       <span className="amount">+${inc.amount.toLocaleString()}</span>
-                      <div className="actions">
-                        <button className="btn-icon" onClick={() => onEdit(inc)} title="Edit">
-                          <span className="material-symbols-rounded">edit</span>
-                        </button>
-                        <button className="btn-icon delete" onClick={() => onDelete(inc.id)} title="Delete">
-                          <span className="material-symbols-rounded">delete</span>
-                        </button>
-                      </div>
+                <div className="actions">
+                  <button className="btn-icon" onClick={() => onEdit(inc)} title="Edit">
+                    <span className="material-symbols-rounded">edit</span>
+                  </button>
+                  <button className="btn-icon delete" onClick={() => onDelete(inc.id)} title="Delete">
+                    <span className="material-symbols-rounded">delete</span>
+                  </button>
+                </div>
                     </div>
                   </div>
                 ))}

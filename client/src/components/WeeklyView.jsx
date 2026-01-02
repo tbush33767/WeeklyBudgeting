@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { format, startOfWeek, endOfWeek, addDays, isSameDay, lastDayOfMonth } from 'date-fns';
-import { fetchPaidExpenses, addPayment, clearExpensePayments, fetchRollover, updateRollover, fetchWeeklyIncome, updateWeeklyIncome, resetWeeklyIncome, fetchWeeklyExpenseOverrides, updateWeeklyExpense, resetWeeklyExpense, fetchQuickExpenses, addQuickExpense, deleteQuickExpense, fetchActualBalance, updateActualBalance } from '../api/expenses';
+import { format, startOfWeek, endOfWeek, addDays, isSameDay, lastDayOfMonth, parse } from 'date-fns';
+import { fetchPaidExpenses, addPayment, clearExpensePayments, deletePayment, updatePaymentDate, fetchRollover, updateRollover, fetchWeeklyIncome, updateWeeklyIncome, resetWeeklyIncome, fetchWeeklyExpenseOverrides, updateWeeklyExpense, resetWeeklyExpense, fetchQuickExpenses, addQuickExpense, deleteQuickExpense, fetchActualBalance, updateActualBalance, fetchDueDayOverrides, updateDueDayOverride, deleteDueDayOverride, fetchExpenseSchedule, updateExpenseSchedule, deleteExpenseSchedule } from '../api/expenses';
 import './WeeklyView.css';
 
 const categoryConfig = {
@@ -11,6 +11,16 @@ const categoryConfig = {
 };
 
 const dayNames = ['Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu'];
+
+// Helper to get ordinal suffix (1st, 2nd, 3rd, etc.)
+const getOrdinalSuffix = (n) => {
+  const j = n % 10;
+  const k = n % 100;
+  if (j === 1 && k !== 11) return 'st';
+  if (j === 2 && k !== 12) return 'nd';
+  if (j === 3 && k !== 13) return 'rd';
+  return 'th';
+};
 
 // Helper to get the effective due day for a given month
 // If due_day is 31 but month only has 30 days, returns 30
@@ -43,10 +53,14 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
 
   // Track paid amounts per expense: { expense_id: total_paid }
   const [paidAmounts, setPaidAmounts] = useState({});
+  // Track individual payments: { expense_id: [payment objects] }
+  const [payments, setPayments] = useState({});
   // Payment modal state
   const [paymentModal, setPaymentModal] = useState(null); // { expense, remaining }
   const [paymentAmount, setPaymentAmount] = useState('');
   const paymentInputRef = useRef(null);
+  // Payment date editing state: { paymentId: { editing: true, date: '...' } }
+  const [editingPaymentDates, setEditingPaymentDates] = useState({});
   
   // Rollover state
   const [rollover, setRollover] = useState(0);
@@ -63,10 +77,18 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
 
   // Expense override state: { expense_id: actual_amount }
   const [expenseOverrides, setExpenseOverrides] = useState({});
+  // Due date override state: { expense_id: due_date (YYYY-MM-DD) }
+  const [dueDayOverrides, setDueDayOverrides] = useState({}); // Keep for backwards compatibility
+  const [expenseSchedule, setExpenseSchedule] = useState({}); // { expense_id: { due_date, amount, week_start } }
   // Expense override modal state
   const [expenseModal, setExpenseModal] = useState(null); // { expense, actualAmount }
   const [expenseAmountInput, setExpenseAmountInput] = useState('');
   const expenseAmountInputRef = useRef(null);
+  const [dueDateInput, setDueDateInput] = useState('');
+  // Payment input for expense modal
+  const [expenseModalPaymentAmount, setExpenseModalPaymentAmount] = useState('');
+  const [expenseModalPaymentDate, setExpenseModalPaymentDate] = useState('');
+  const expenseModalPaymentInputRef = useRef(null);
 
   // Quick expenses state
   const [quickExpenses, setQuickExpenses] = useState([]);
@@ -92,6 +114,16 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
           amounts[t.expense_id] = t.total_paid;
         });
         setPaidAmounts(amounts);
+        
+        // Store individual payments grouped by expense_id
+        const paymentsByExpense = {};
+        data.payments.forEach(payment => {
+          if (!paymentsByExpense[payment.expense_id]) {
+            paymentsByExpense[payment.expense_id] = [];
+          }
+          paymentsByExpense[payment.expense_id].push(payment);
+        });
+        setPayments(paymentsByExpense);
       } catch (err) {
         console.error('Failed to load paid expenses:', err);
       }
@@ -147,6 +179,63 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
       }
     };
     loadExpenseOverrides();
+  }, [weekStartStr]);
+
+  // Load expense schedule for this week (includes both scheduled and calculated)
+  useEffect(() => {
+    const loadExpenseSchedule = async () => {
+      try {
+        const data = await fetchExpenseSchedule(weekStartStr);
+        const schedule = {};
+        data.forEach(item => {
+          // Handle both regular expenses (with expense_id) and quick expenses (with quick_expense_id)
+          const key = item.expense_id ? item.expense_id : `quick_${item.quick_expense_id}`;
+          schedule[key] = {
+            due_date: item.due_date,
+            amount: item.amount,
+            week_start: item.week_start,
+            is_calculated: item.is_calculated || false,
+            is_quick_expense: item.is_quick_expense || false,
+            expense_id: item.expense_id,
+            quick_expense_id: item.quick_expense_id,
+            expense_name: item.expense_name
+          };
+        });
+        setExpenseSchedule(schedule);
+        
+        // Crosscheck: Verify schedule matches what should be displayed
+        try {
+          const crosscheck = await fetch(`${import.meta.env.VITE_API_PORT ? `http://${window.location.hostname}:${import.meta.env.VITE_API_PORT}` : 'http://localhost:3001'}/api/schedule/crosscheck/${weekStartStr}`);
+          if (crosscheck.ok) {
+            const checkData = await crosscheck.json();
+            if (checkData.summary.missingInSchedule > 0 || checkData.summary.extraInSchedule > 0 || checkData.summary.mismatched > 0) {
+              console.warn('⚠️ Schedule crosscheck found discrepancies:', checkData.summary);
+              console.warn('Details:', checkData.details);
+            } else {
+              console.log('✅ Schedule crosscheck passed - all entries match');
+            }
+          }
+        } catch (err) {
+          // Ignore crosscheck errors (endpoint might not be available)
+          console.log('Note: Could not run schedule crosscheck:', err.message);
+        }
+        
+        // Also load old due date overrides for backwards compatibility
+        try {
+          const oldData = await fetchDueDayOverrides(weekStartStr);
+          const overrides = {};
+          oldData.forEach(item => {
+            overrides[item.expense_id] = item.due_date || (item.due_day ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(item.due_day).padStart(2, '0')}` : null);
+          });
+          setDueDayOverrides(overrides);
+        } catch (err) {
+          // Ignore errors for old system
+        }
+      } catch (err) {
+        console.error('Failed to load expense schedule:', err);
+      }
+    };
+    loadExpenseSchedule();
   }, [weekStartStr]);
 
   // Load quick expenses for this week
@@ -274,9 +363,74 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
 
   const handleExpenseAmountClick = (expense, e) => {
     e.stopPropagation(); // Prevent triggering payment modal
-    const actualAmount = expenseOverrides[expense.id] ?? expense.amount;
+    
+    // Get amount - check schedule first, then overrides, then default
+    const scheduled = expenseSchedule[expense.id];
+    const actualAmount = scheduled?.amount ?? expenseOverrides[expense.id] ?? expense.amount;
+    const paid = paidAmounts[expense.id] || 0;
+    
+    // Check if expense is scheduled for this week
+    let scheduledDate = null;
+    let overrideApplies = false;
+    
+    if (scheduled) {
+      const scheduledDateObj = parse(scheduled.due_date, 'yyyy-MM-dd', new Date());
+      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 5 });
+      
+      // Check if scheduled date falls within this week
+      if (scheduledDateObj >= weekStart && scheduledDateObj <= weekEnd) {
+        scheduledDate = scheduled.due_date;
+        overrideApplies = true;
+      }
+    }
+    
+    // Fall back to old due date override system for backwards compatibility
+    if (!scheduledDate) {
+      const dueDateOverride = dueDayOverrides[expense.id];
+      
+      if (dueDateOverride) {
+        const overrideDate = parse(dueDateOverride, 'yyyy-MM-dd', new Date());
+        
+        if (expense.frequency === 'monthly') {
+          const overrideMonth = overrideDate.getMonth();
+          const overrideYear = overrideDate.getFullYear();
+          const weekMonth = weekStart.getMonth();
+          const weekYear = weekStart.getFullYear();
+          
+          overrideApplies = overrideMonth === weekMonth && overrideYear === weekYear;
+        } else {
+          const weekEnd = endOfWeek(weekStart, { weekStartsOn: 5 });
+          overrideApplies = overrideDate >= weekStart && overrideDate <= weekEnd;
+        }
+        
+        if (overrideApplies) {
+          scheduledDate = dueDateOverride;
+        }
+      }
+    }
+    
+    // Calculate default date: if expense has due_day, use it for the week being viewed
+    let defaultDate = '';
+    if (expense.due_day && !scheduledDate) {
+      const weekDate = new Date(weekStart);
+      const year = weekDate.getFullYear();
+      const month = weekDate.getMonth() + 1;
+      const lastDay = new Date(year, month, 0).getDate();
+      const day = Math.min(expense.due_day, lastDay);
+      const monthStr = month < 10 ? `0${month}` : `${month}`;
+      const dayStr = day < 10 ? `0${day}` : `${day}`;
+      defaultDate = `${year}-${monthStr}-${dayStr}`;
+    }
+    
     setExpenseAmountInput(actualAmount.toString());
-    setExpenseModal({ expense, hasOverride: expense.id in expenseOverrides });
+    setDueDateInput(scheduledDate || defaultDate);
+    setExpenseModal({ 
+      expense, 
+      hasOverride: expense.id in expenseOverrides || scheduled?.amount !== undefined,
+      hasDueDayOverride: overrideApplies,
+      paid,
+      actualAmount
+    });
   };
 
   const handleExpenseAmountSave = async () => {
@@ -313,6 +467,107 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
     }
   };
 
+  const handleDueDaySave = async () => {
+    if (!expenseModal) return;
+    
+    if (!dueDateInput || dueDateInput.trim() === '') {
+      alert('Please select a due date');
+      return;
+    }
+    
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dueDateInput)) {
+      alert('Invalid date format. Please use YYYY-MM-DD format.');
+      return;
+    }
+
+    try {
+      // Calculate the week_start that matches the due_date's week
+      const dueDate = parse(dueDateInput, 'yyyy-MM-dd', new Date());
+      const dueDateWeekStart = startOfWeek(dueDate, { weekStartsOn: 5 });
+      const dueDateWeekStartStr = format(dueDateWeekStart, 'yyyy-MM-dd');
+      
+      // Get the amount override if it exists, otherwise use expense amount
+      const amountOverride = expenseOverrides[expenseModal.expense.id];
+      const amount = amountOverride !== undefined ? amountOverride : expenseModal.expense.amount;
+      
+      // Update the schedule
+      const result = await updateExpenseSchedule(
+        expenseModal.expense.id, 
+        dueDateWeekStartStr, 
+        dueDateInput,
+        amount
+      );
+      
+      // Update local state
+      setExpenseSchedule(prev => ({
+        ...prev,
+        [expenseModal.expense.id]: {
+          due_date: dueDateInput,
+          amount: amount,
+          week_start: dueDateWeekStartStr
+        }
+      }));
+      
+      // Also update old system for backwards compatibility
+      setDueDayOverrides(prev => ({
+        ...prev,
+        [expenseModal.expense.id]: dueDateInput
+      }));
+      
+      // Update the modal state to reflect the new due date override, but keep it open
+      setExpenseModal(prev => ({
+        ...prev,
+        hasDueDayOverride: true
+      }));
+      
+    } catch (err) {
+      console.error('Failed to update due date:', err);
+      alert(`Failed to save due date: ${err.message || 'Please try again.'}`);
+    }
+  };
+
+  const handleDueDayReset = async () => {
+    if (!expenseModal) return;
+    try {
+      // Remove from schedule
+      await deleteExpenseSchedule(expenseModal.expense.id, weekStartStr);
+      
+      // Update local state
+      setExpenseSchedule(prev => {
+        const next = { ...prev };
+        delete next[expenseModal.expense.id];
+        return next;
+      });
+      
+      // Also update old system for backwards compatibility
+      setDueDayOverrides(prev => {
+        const next = { ...prev };
+        delete next[expenseModal.expense.id];
+        return next;
+      });
+      
+      // Reset to default date based on expense's due_day
+      let defaultDate = '';
+      if (expenseModal.expense.due_day) {
+        const weekDate = new Date(weekStart);
+        const year = weekDate.getFullYear();
+        const month = weekDate.getMonth() + 1;
+        const lastDay = new Date(year, month, 0).getDate();
+        const day = Math.min(expenseModal.expense.due_day, lastDay);
+        defaultDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+      setDueDateInput(defaultDate);
+      setExpenseModal(prev => ({
+        ...prev,
+        hasDueDayOverride: false
+      }));
+    } catch (err) {
+      console.error('Failed to reset due date:', err);
+    }
+  };
+
   // Quick expense handlers
   useEffect(() => {
     if (quickExpenseModal && quickExpenseInputRef.current) {
@@ -340,8 +595,22 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
     try {
       await deleteQuickExpense(id);
       setQuickExpenses(prev => prev.filter(e => e.id !== id));
+      
+      // Also reload the expense schedule to reflect the deletion
+      const data = await fetchExpenseSchedule(weekStartStr);
+      const schedule = {};
+      data.forEach(item => {
+        schedule[item.expense_id] = {
+          due_date: item.due_date,
+          amount: item.amount,
+          week_start: item.week_start,
+          is_calculated: item.is_calculated || false
+        };
+      });
+      setExpenseSchedule(schedule);
     } catch (err) {
       console.error('Failed to delete quick expense:', err);
+      alert(`Failed to delete quick expense: ${err.message || 'Please try again.'}`);
     }
   };
 
@@ -395,12 +664,25 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
     if (isNaN(amount) || amount <= 0) return;
 
     try {
-      await addPayment(paymentModal.expense.id, weekStartStr, amount);
+      const result = await addPayment(paymentModal.expense.id, weekStartStr, amount);
       setPaidAmounts(prev => ({
         ...prev,
         [paymentModal.expense.id]: (prev[paymentModal.expense.id] || 0) + amount
       }));
-      setPaymentModal(null);
+      // Add the new payment to the payments list
+      setPayments(prev => {
+        const expensePayments = prev[paymentModal.expense.id] || [];
+        return {
+          ...prev,
+          [paymentModal.expense.id]: [...expensePayments, result]
+        };
+      });
+      // Update modal with new paid amount
+      setPaymentModal(prev => ({
+        ...prev,
+        paid: (prev.paid || 0) + amount,
+        remaining: prev.remaining - amount
+      }));
       setPaymentAmount('');
     } catch (err) {
       console.error('Failed to add payment:', err);
@@ -416,10 +698,107 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
         delete next[paymentModal.expense.id];
         return next;
       });
+      setPayments(prev => {
+        const next = { ...prev };
+        delete next[paymentModal.expense.id];
+        return next;
+      });
       setPaymentModal(null);
       setPaymentAmount('');
     } catch (err) {
       console.error('Failed to clear payments:', err);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId, expenseId) => {
+    try {
+      await deletePayment(paymentId);
+      // Reload payments to get updated totals
+      const data = await fetchPaidExpenses(weekStartStr);
+      const amounts = {};
+      data.totals.forEach(t => {
+        amounts[t.expense_id] = t.total_paid;
+      });
+      setPaidAmounts(amounts);
+      
+      const paymentsByExpense = {};
+      data.payments.forEach(payment => {
+        if (!paymentsByExpense[payment.expense_id]) {
+          paymentsByExpense[payment.expense_id] = [];
+        }
+        paymentsByExpense[payment.expense_id].push(payment);
+      });
+      setPayments(paymentsByExpense);
+      
+      // Update payment modal if it's open for this expense
+      if (paymentModal && paymentModal.expense.id === expenseId) {
+        const newPaid = amounts[expenseId] || 0;
+        setPaymentModal(prev => ({
+          ...prev,
+          paid: newPaid,
+          remaining: prev.actualAmount - newPaid
+        }));
+      }
+      
+      // Update expense modal if it's open for this expense
+      if (expenseModal && expenseModal.expense.id === expenseId) {
+        const newPaid = amounts[expenseId] || 0;
+        setExpenseModal(prev => ({
+          ...prev,
+          paid: newPaid
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to delete payment:', err);
+    }
+  };
+
+  const handleStartEditPaymentDate = (paymentId, currentDate) => {
+    // Extract date part (YYYY-MM-DD) from ISO string or use as-is if already in that format
+    const dateStr = currentDate.includes('T') ? currentDate.split('T')[0] : currentDate;
+    setEditingPaymentDates(prev => ({
+      ...prev,
+      [paymentId]: { editing: true, date: dateStr }
+    }));
+  };
+
+  const handleCancelEditPaymentDate = (paymentId) => {
+    setEditingPaymentDates(prev => {
+      const next = { ...prev };
+      delete next[paymentId];
+      return next;
+    });
+  };
+
+  const handleSavePaymentDate = async (paymentId, expenseId) => {
+    const editState = editingPaymentDates[paymentId];
+    if (!editState) return;
+    
+    try {
+      // Format date as ISO string (YYYY-MM-DD)
+      const dateStr = editState.date;
+      const updatedPayment = await updatePaymentDate(paymentId, dateStr);
+      
+      // Update local state with the response from the API
+      setPayments(prev => {
+        const expensePayments = prev[expenseId] || [];
+        return {
+          ...prev,
+          [expenseId]: expensePayments.map(p => 
+            p.id === paymentId 
+              ? updatedPayment
+              : p
+          )
+        };
+      });
+      
+      setEditingPaymentDates(prev => {
+        const next = { ...prev };
+        delete next[paymentId];
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to update payment date:', err);
     }
   };
 
@@ -456,9 +835,27 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
     return override ? override.actual_amount : inc.amount;
   };
 
-  // Get actual expense amount (using override if available)
+  // Get actual expense amount (check schedule first, then overrides, then default)
   const getActualExpense = (expense) => {
-    return expenseOverrides[expense.id] ?? expense.amount;
+    // For quick expenses, use the amount from the schedule
+    if (expense.is_quick_expense && expense.quick_expense_id) {
+      const scheduleKey = `quick_${expense.quick_expense_id}`;
+      if (expenseSchedule[scheduleKey]?.amount !== undefined) {
+        return expenseSchedule[scheduleKey].amount;
+      }
+      return expense.amount;
+    }
+    
+    // For regular expenses, check schedule for amount override
+    if (expenseSchedule[expense.id]?.amount !== undefined) {
+      return expenseSchedule[expense.id].amount;
+    }
+    // Check old override system
+    if (expenseOverrides[expense.id] !== undefined) {
+      return expenseOverrides[expense.id];
+    }
+    // Use default amount
+    return expense.amount;
   };
 
   // Calculate total income for this specific week
@@ -498,46 +895,106 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
     });
   }, [income, weekStartStr]);
 
-  // Group expenses by day
+  // Group expenses by day using the schedule data
   const expensesByDay = useMemo(() => {
     const result = {};
     weekDays.forEach(day => {
       result[format(day, 'yyyy-MM-dd')] = [];
     });
 
+    // Use the schedule as the source of truth
+    // The schedule includes both explicitly scheduled items and calculated items
+    // Note: Quick expenses are excluded from day cards and shown separately at the bottom
+    Object.keys(expenseSchedule).forEach(expenseId => {
+      const scheduled = expenseSchedule[expenseId];
+      
+      // Skip quick expenses - they're shown in their own section at the bottom
+      if (scheduled.is_quick_expense && scheduled.quick_expense_id) {
+        return;
+      }
+      
+      // Handle regular expenses
+      const expense = expenses.find(e => e.id === parseInt(expenseId));
+      if (!expense || !expense.is_active) return;
+      
+      // Use the scheduled due date
+      const scheduledDate = parse(scheduled.due_date, 'yyyy-MM-dd', new Date());
+      weekDays.forEach(day => {
+        if (isSameDay(day, scheduledDate)) {
+          const key = format(day, 'yyyy-MM-dd');
+          result[key].push(expense);
+        }
+      });
+    });
+
+    // Also include expenses that aren't in the schedule but should appear
+    // (fallback for backwards compatibility with old system)
     expenses.forEach(expense => {
       if (!expense.is_active) return;
-
+      
+      // Skip if already in schedule
+      if (expenseSchedule[expense.id]) return;
+      
+      // Check old override system
+      const dueDateOverride = dueDayOverrides[expense.id];
+      if (dueDateOverride) {
+        const overrideDate = parse(dueDateOverride, 'yyyy-MM-dd', new Date());
+        weekDays.forEach(day => {
+          if (isSameDay(day, overrideDate)) {
+            const key = format(day, 'yyyy-MM-dd');
+            // Only add if not already added
+            if (!result[key].find(e => e.id === expense.id)) {
+              result[key].push(expense);
+            }
+          }
+        });
+        return;
+      }
+      
+      // Fallback to calculation for expenses not in schedule
       if (expense.frequency === 'weekly') {
         const key = format(weekStart, 'yyyy-MM-dd');
-        result[key].push(expense);
+        if (!result[key].find(e => e.id === expense.id)) {
+          result[key].push(expense);
+        }
       } else if (expense.frequency === 'biweekly') {
-        // For biweekly expenses, use start_date to determine which weeks they apply
         if (isBiweeklyWeek(expense.start_date, weekStartStr)) {
           const key = format(weekStart, 'yyyy-MM-dd');
-          result[key].push(expense);
+          if (!result[key].find(e => e.id === expense.id)) {
+            result[key].push(expense);
+          }
         }
       } else if (expense.due_day) {
         weekDays.forEach(day => {
           const effectiveDueDay = getEffectiveDueDay(expense.due_day, day);
           if (day.getDate() === effectiveDueDay) {
             const key = format(day, 'yyyy-MM-dd');
-            result[key].push(expense);
+            if (!result[key].find(e => e.id === expense.id)) {
+              result[key].push(expense);
+            }
           }
         });
       }
     });
 
     return result;
-  }, [expenses, weekDays, weekStart, weekStartStr]);
+  }, [expenses, weekDays, weekStart, weekStartStr, expenseSchedule, dueDayOverrides]);
 
   const allWeekExpenses = useMemo(() => {
     return Object.values(expensesByDay).flat();
   }, [expensesByDay]);
 
   const totalThisWeek = useMemo(() => {
-    return allWeekExpenses.reduce((sum, e) => sum + getActualExpense(e), 0);
-  }, [allWeekExpenses, expenseOverrides]);
+    // Calculate from regular expenses (excludes quick expenses from day cards)
+    const regularTotal = allWeekExpenses.reduce((sum, e) => sum + getActualExpense(e), 0);
+    // Add quick expenses from schedule (they're shown separately at the bottom)
+    const quickTotal = quickExpenses.reduce((sum, e) => {
+      const scheduleKey = `quick_${e.id}`;
+      const scheduleEntry = expenseSchedule[scheduleKey];
+      return sum + (scheduleEntry?.amount || e.amount);
+    }, 0);
+    return regularTotal + quickTotal;
+  }, [allWeekExpenses, expenseOverrides, quickExpenses, expenseSchedule]);
 
   const totalPaid = useMemo(() => {
     return allWeekExpenses.reduce((sum, e) => {
@@ -547,7 +1004,8 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
     }, 0);
   }, [allWeekExpenses, paidAmounts, expenseOverrides]);
 
-  // Calculate total quick expenses
+  // Calculate total quick expenses (for display purposes, but they're already in totalThisWeek)
+  // Note: Quick expenses are now included in totalThisWeek via the schedule, so this is just for the separate display
   const totalQuickExpenses = useMemo(() => {
     return quickExpenses.reduce((sum, e) => sum + e.amount, 0);
   }, [quickExpenses]);
@@ -555,9 +1013,17 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
   const totalUnpaid = totalThisWeek - totalPaid;
   const totalAvailable = weeklyIncome + rollover;
   // Discretionary = what's left after budgeted expenses (available for free spending)
+  // Note: totalThisWeek now includes both regular expenses and quick expenses from the schedule
   const discretionary = totalAvailable - totalThisWeek;
-  // Remaining = what's left after quick expenses too (can spend or roll over)
-  const remaining = discretionary - totalQuickExpenses;
+  // Remaining = discretionary (quick expenses are already included in totalThisWeek)
+  // This matches the Dashboard calculation: remaining = (weeklyIncome + rollover - totalExpenses - totalQuickExpenses)
+  // But since totalThisWeek includes quick expenses, we just use discretionary
+  const remaining = discretionary;
+  
+  // Calculate current account balance based on:
+  // Starting balance (rollover) + Income - Paid Expenses - Quick Expenses
+  const calculatedBalance = rollover + weeklyIncome - totalPaid - totalQuickExpenses;
+  
   // Untracked = spending not logged (if positive, you spent more than tracked)
   const untracked = actualBalance !== null ? remaining - actualBalance : null;
 
@@ -669,6 +1135,15 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
               <span className="material-symbols-rounded">fact_check</span>
               <span>Reality Check</span>
             </div>
+            <div className="budget-row">
+              <span className="row-label">
+                <span className="material-symbols-rounded">calculate</span>
+                Calculated Balance
+              </span>
+              <span className={`row-amount ${calculatedBalance >= 0 ? 'positive' : 'negative'}`}>
+                ${Math.round(calculatedBalance).toLocaleString()}
+              </span>
+            </div>
             <div className="budget-row clickable" onClick={handleBalanceClick}>
               <span className="row-label">
                 Actual Balance
@@ -703,7 +1178,7 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
                 </span>
                 <span className={`row-amount ${untracked > 0 ? 'negative' : 'positive'}`}>
                   {untracked > 0 ? '-' : '+'}${Math.abs(Math.round(untracked)).toLocaleString()}
-                </span>
+            </span>
               </div>
             )}
             {actualBalance === null && (
@@ -751,7 +1226,7 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
                       <span className="material-symbols-rounded income-icon">
                         {hasOverride ? 'check_circle' : 'add_circle'}
                       </span>
-                      <span className="income-name">{inc.name}</span>
+                    <span className="income-name">{inc.name}</span>
                       <span className="income-amount">
                         {isDifferent ? (
                           <><span className="original-amount">${inc.amount.toLocaleString()}</span> → +${actualAmount.toLocaleString()}</>
@@ -759,7 +1234,7 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
                           <>+${actualAmount.toLocaleString()}</>
                         )}
                       </span>
-                    </div>
+                  </div>
                   );
                 })}
                 {dayExpenses.length === 0 && !isPayday ? (
@@ -835,18 +1310,31 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
             </button>
           </div>
           <div className="quick-expenses-list">
-            {quickExpenses.map(exp => (
-              <div key={exp.id} className="quick-expense-item">
-                <span className="quick-expense-name">{exp.name}</span>
-                <span className="quick-expense-amount">-${exp.amount.toLocaleString()}</span>
-                <button 
-                  className="quick-expense-delete"
-                  onClick={() => handleDeleteQuickExpense(exp.id)}
-                >
-                  <span className="material-symbols-rounded">close</span>
-                </button>
-              </div>
-            ))}
+            {quickExpenses.map(exp => {
+              // Get the due_date from the schedule if available
+              const scheduleKey = `quick_${exp.id}`;
+              const scheduleEntry = expenseSchedule[scheduleKey];
+              const dueDate = scheduleEntry?.due_date || exp.week_start;
+              const formattedDate = dueDate ? format(parse(dueDate, 'yyyy-MM-dd', new Date()), 'MMM d') : '';
+              
+              return (
+                <div key={exp.id} className="quick-expense-item">
+                  <span className="quick-expense-name">{exp.name}</span>
+                  <div className="quick-expense-right">
+                    <span className="quick-expense-amount">-${exp.amount.toLocaleString()}</span>
+                    {formattedDate && (
+                      <span className="quick-expense-date">{formattedDate}</span>
+                    )}
+                    <button 
+                      className="quick-expense-delete"
+                      onClick={() => handleDeleteQuickExpense(exp.id)}
+                    >
+                      <span className="material-symbols-rounded">close</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1105,6 +1593,118 @@ export default function WeeklyView({ expenses, income, selectedDate }) {
                   <span className="material-symbols-rounded">restart_alt</span>
                   Reset to Budgeted
                 </button>
+              )}
+
+              {/* Due Date Override Section - only show for expenses with due_day */}
+              {expenseModal.expense.due_day && (
+                <>
+                  <div className="payment-input-group">
+                    <label>New Due Date</label>
+                    <div className="payment-input-wrapper">
+                      <span className="material-symbols-rounded input-icon">calendar_today</span>
+                      <input
+                        type="date"
+                        value={dueDateInput}
+                        onChange={e => setDueDateInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleDueDaySave()}
+                        required
+                      />
+                    </div>
+                    <span className="remaining-hint">
+                      {expenseModal.hasDueDayOverride 
+                        ? `Override active for this month only. Next month will use the default due date (${expenseModal.expense.due_day}${getOrdinalSuffix(expenseModal.expense.due_day)}).`
+                        : `Normally due on the ${expenseModal.expense.due_day}${getOrdinalSuffix(expenseModal.expense.due_day)} of each month. This override will only apply to this specific month - next month will revert to the default.`}
+                    </span>
+                  </div>
+
+                  <div className="payment-actions">
+                    {expenseModal.hasDueDayOverride && (
+                      <button className="btn-secondary" onClick={handleDueDayReset}>
+                        Use Normal Due Day
+                      </button>
+                    )}
+                    <button className="btn-primary" onClick={handleDueDaySave}>
+                      <span className="material-symbols-rounded">check</span>
+                      Save Due Date
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Payment History Section */}
+              {(payments[expenseModal.expense.id] || []).length > 0 && (
+                <div className="payment-list-section">
+                  <h4>Payment History</h4>
+                  <div className="payment-list">
+                    {(payments[expenseModal.expense.id] || []).map((payment) => {
+                      const isEditing = editingPaymentDates[payment.id]?.editing;
+                      const editState = editingPaymentDates[payment.id];
+                      const paymentDate = new Date(payment.paid_date);
+                      const dateStr = format(paymentDate, 'yyyy-MM-dd');
+                      
+                      return (
+                        <div key={payment.id} className="payment-item">
+                          <div className="payment-item-amount">
+                            ${payment.amount_paid.toLocaleString()}
+                          </div>
+                          <div className="payment-item-date">
+                            {isEditing ? (
+                              <div className="date-edit-wrapper">
+                                <input
+                                  type="date"
+                                  value={editState.date}
+                                  onChange={(e) => setEditingPaymentDates(prev => ({
+                                    ...prev,
+                                    [payment.id]: { ...prev[payment.id], date: e.target.value }
+                                  }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleSavePaymentDate(payment.id, expenseModal.expense.id);
+                                    } else if (e.key === 'Escape') {
+                                      handleCancelEditPaymentDate(payment.id);
+                                    }
+                                  }}
+                                  onBlur={() => handleSavePaymentDate(payment.id, expenseModal.expense.id)}
+                                  autoFocus
+                                />
+                                <button
+                                  className="btn-date-save"
+                                  onClick={() => handleSavePaymentDate(payment.id, expenseModal.expense.id)}
+                                >
+                                  <span className="material-symbols-rounded">check</span>
+                                </button>
+                                <button
+                                  className="btn-date-cancel"
+                                  onClick={() => handleCancelEditPaymentDate(payment.id)}
+                                >
+                                  <span className="material-symbols-rounded">close</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="date-display-wrapper">
+                                <span className="payment-date-text">{format(paymentDate, 'MMM d, yyyy')}</span>
+                                <button
+                                  className="btn-edit-date"
+                                  onClick={() => handleStartEditPaymentDate(payment.id, payment.paid_date)}
+                                  title="Edit date"
+                                >
+                                  <span className="material-symbols-rounded">edit</span>
+                                </button>
+                                <button
+                                  className="btn-delete-payment"
+                                  onClick={() => handleDeletePayment(payment.id, expenseModal.expense.id)}
+                                  title="Delete payment"
+                                >
+                                  <span className="material-symbols-rounded">delete</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           </div>

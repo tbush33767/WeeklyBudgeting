@@ -7,12 +7,34 @@ import subprocess
 import os
 import signal
 import sys
+import socket
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 CLIENT_DIR = os.path.join(PROJECT_ROOT, "client")
 SERVER_DIR = os.path.join(PROJECT_ROOT, "server")
 
+# Default ports
+DEFAULT_BACKEND_PORT = 3001
+DEFAULT_FRONTEND_PORT = 5173
+
 processes = []
+
+def is_port_available(port):
+    """Check if a port is available."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(('127.0.0.1', port))
+            return True
+        except OSError:
+            return False
+
+def find_available_port(start_port, max_attempts=100):
+    """Find an available port starting from start_port."""
+    for offset in range(max_attempts):
+        port = start_port + offset
+        if is_port_available(port):
+            return port
+    raise RuntimeError(f"Could not find an available port starting from {start_port}")
 
 def cleanup(signum=None, frame=None):
     """Terminate all child processes on exit."""
@@ -57,13 +79,35 @@ def main():
     install_dependencies(CLIENT_DIR, "Frontend")
     print()
 
+    # Find available ports
+    print("🔌 Checking port availability...")
+    backend_port = DEFAULT_BACKEND_PORT
+    if not is_port_available(backend_port):
+        print(f"   ⚠️  Port {backend_port} is in use, finding alternative...")
+        backend_port = find_available_port(backend_port)
+        print(f"   ✅ Using backend port: {backend_port}")
+    else:
+        print(f"   ✅ Backend port {backend_port} is available")
+    
+    frontend_port = DEFAULT_FRONTEND_PORT
+    if not is_port_available(frontend_port):
+        print(f"   ⚠️  Port {frontend_port} is in use, finding alternative...")
+        frontend_port = find_available_port(frontend_port)
+        print(f"   ✅ Using frontend port: {frontend_port}")
+    else:
+        print(f"   ✅ Frontend port {frontend_port} is available")
+    print()
+
     print("🚀 Starting Weekly Budgeting servers...\n")
 
-    # Start backend server
-    print("📦 Starting backend server (Express)...")
+    # Start backend server with port environment variable
+    print(f"📦 Starting backend server (Express) on port {backend_port}...")
+    backend_env = os.environ.copy()
+    backend_env['PORT'] = str(backend_port)
     backend_proc = subprocess.Popen(
         ["npm", "run", "dev"],
         cwd=SERVER_DIR,
+        env=backend_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True
@@ -71,11 +115,14 @@ def main():
     processes.append(backend_proc)
     print(f"   Backend running (PID: {backend_proc.pid})")
 
-    # Start frontend server
-    print("⚛️  Starting frontend server (Vite)...")
+    # Start frontend server with port and backend port environment variables
+    print(f"⚛️  Starting frontend server (Vite) on port {frontend_port}...")
+    frontend_env = os.environ.copy()
+    frontend_env['VITE_API_PORT'] = str(backend_port)  # Pass backend port to Vite
     frontend_proc = subprocess.Popen(
-        ["npm", "run", "dev"],
+        ["npm", "run", "dev", "--", "--port", str(frontend_port)],
         cwd=CLIENT_DIR,
+        env=frontend_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True
@@ -85,8 +132,8 @@ def main():
 
     print("\n" + "=" * 50)
     print("✅ Both servers are running!")
-    print("   Frontend: http://localhost:5173")
-    print("   Backend:  http://localhost:3000")
+    print(f"   Frontend: http://localhost:{frontend_port}")
+    print(f"   Backend:  http://localhost:{backend_port}")
     print("=" * 50)
     print("\nPress Ctrl+C to stop both servers.\n")
 

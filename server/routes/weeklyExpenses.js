@@ -4,10 +4,10 @@ import db from '../db/database.js';
 const router = Router();
 
 // Get all weekly expense overrides for a specific week
-router.get('/:weekStart', (req, res) => {
+router.get('/:weekStart', async (req, res) => {
   try {
     const { weekStart } = req.params;
-    const expenseOverrides = db.prepare('SELECT * FROM weekly_expenses WHERE week_start = ?').all(weekStart);
+    const expenseOverrides = await db.prepare('SELECT * FROM weekly_expenses WHERE week_start = ?').all(weekStart);
     res.json(expenseOverrides);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -15,7 +15,7 @@ router.get('/:weekStart', (req, res) => {
 });
 
 // Set or update actual expense amount for a specific week
-router.put('/:expenseId/:weekStart', (req, res) => {
+router.put('/:expenseId/:weekStart', async (req, res) => {
   try {
     const { expenseId, weekStart } = req.params;
     const { actual_amount } = req.body;
@@ -29,22 +29,24 @@ router.put('/:expenseId/:weekStart', (req, res) => {
       VALUES (?, ?, ?)
       ON CONFLICT(expense_id, week_start) DO UPDATE SET 
         actual_amount = ?
+      RETURNING *
     `);
     
-    stmt.run(expenseId, weekStart, actual_amount, actual_amount);
+    const result = await stmt.run(expenseId, weekStart, actual_amount, actual_amount);
+    const updated = result.rows?.[0] || { expense_id: parseInt(expenseId), week_start: weekStart, actual_amount };
     
-    res.json({ expense_id: parseInt(expenseId), week_start: weekStart, actual_amount });
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // Delete expense override for a specific week (reset to default)
-router.delete('/:expenseId/:weekStart', (req, res) => {
+router.delete('/:expenseId/:weekStart', async (req, res) => {
   try {
     const { expenseId, weekStart } = req.params;
     
-    db.prepare('DELETE FROM weekly_expenses WHERE expense_id = ? AND week_start = ?').run(expenseId, weekStart);
+    await db.prepare('DELETE FROM weekly_expenses WHERE expense_id = ? AND week_start = ?').run(expenseId, weekStart);
     
     res.json({ expense_id: parseInt(expenseId), week_start: weekStart, deleted: true });
   } catch (error) {

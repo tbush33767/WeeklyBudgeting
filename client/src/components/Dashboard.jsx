@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
-import { startOfWeek, endOfWeek, addDays, addWeeks, format, lastDayOfMonth } from 'date-fns';
-import { fetchWeeklyIncome, fetchWeeklyExpenseOverrides, fetchRollover, fetchQuickExpenses } from '../api/expenses';
+import { startOfWeek, endOfWeek, addDays, addWeeks, format, lastDayOfMonth, parse, isSameDay } from 'date-fns';
+import { fetchWeeklyIncome, fetchWeeklyExpenseOverrides, fetchRollover, fetchQuickExpenses, fetchDueDayOverrides, fetchExpenseSchedule } from '../api/expenses';
 import './Dashboard.css';
 
 const categoryConfig = {
@@ -47,6 +47,10 @@ export default function Dashboard({ expenses, income, selectedDate }) {
   const [incomeOverrides, setIncomeOverrides] = useState({});
   // Expense overrides state
   const [expenseOverrides, setExpenseOverrides] = useState({});
+  // Due date override state: { expense_id: due_date (YYYY-MM-DD) }
+  const [dueDayOverrides, setDueDayOverrides] = useState({});
+  // Expense schedule state: { expense_id: { due_date, amount, week_start } }
+  const [expenseSchedule, setExpenseSchedule] = useState({});
   // Rollover state
   const [rollover, setRollover] = useState(0);
   // Quick expenses state
@@ -89,6 +93,46 @@ export default function Dashboard({ expenses, income, selectedDate }) {
       }
     };
     loadExpenseOverrides();
+  }, [weekStartStr]);
+
+  // Load expense schedule for this week (includes both scheduled and calculated expenses + quick expenses)
+  useEffect(() => {
+    const loadExpenseSchedule = async () => {
+      try {
+        const data = await fetchExpenseSchedule(weekStartStr);
+        const schedule = {};
+        data.forEach(item => {
+          // Handle both regular expenses (with expense_id) and quick expenses (with quick_expense_id)
+          const key = item.expense_id || `quick_${item.quick_expense_id}`;
+          schedule[key] = {
+            due_date: item.due_date,
+            amount: item.amount,
+            week_start: item.week_start,
+            is_quick_expense: item.is_quick_expense || false,
+            expense_id: item.expense_id,
+            quick_expense_id: item.quick_expense_id,
+            expense_name: item.expense_name,
+            note: item.note || null
+          };
+        });
+        setExpenseSchedule(schedule);
+        
+        // Also load old due date overrides for backwards compatibility
+        try {
+          const oldData = await fetchDueDayOverrides(weekStartStr);
+          const overrides = {};
+          oldData.forEach(item => {
+            overrides[item.expense_id] = item.due_date || (item.due_day ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(item.due_day).padStart(2, '0')}` : null);
+          });
+          setDueDayOverrides(overrides);
+        } catch (err) {
+          // Ignore errors for old system
+        }
+      } catch (err) {
+        console.error('Failed to load expense schedule:', err);
+      }
+    };
+    loadExpenseSchedule();
   }, [weekStartStr]);
 
   // State for next week's expense overrides
@@ -143,9 +187,29 @@ export default function Dashboard({ expenses, income, selectedDate }) {
     return override ? override.actual_amount : inc.amount;
   };
 
-  // Get actual expense amount (using override if available)
+  // Get actual expense amount (check schedule first, then overrides, then default)
   const getActualExpense = (expense) => {
-    return expenseOverrides[expense.id] ?? expense.amount;
+    // For quick expenses, use the amount from the schedule
+    if (expense.is_quick_expense && expense.quick_expense_id) {
+      const scheduleKey = `quick_${expense.quick_expense_id}`;
+      if (expenseSchedule[scheduleKey]) {
+        return expenseSchedule[scheduleKey].amount;
+      }
+      return expense.amount;
+    }
+    
+    // For regular expenses, check schedule first
+    if (expenseSchedule[expense.id]?.amount !== undefined) {
+      return expenseSchedule[expense.id].amount;
+    }
+    
+    // Check old override system
+    if (expenseOverrides[expense.id] !== undefined) {
+      return expenseOverrides[expense.id];
+    }
+    
+    // Use default amount
+    return expense.amount;
   };
 
   // Get days in the week
@@ -183,18 +247,59 @@ export default function Dashboard({ expenses, income, selectedDate }) {
     return quickExpenses.reduce((sum, e) => sum + e.amount, 0);
   }, [quickExpenses]);
 
-  // Filter expenses for this week (matching WeeklyView logic)
+  // Filter expenses for this week using the schedule table
+  // This includes both regular expenses and quick expenses
   const weeklyExpenses = useMemo(() => {
-    return expenses.filter(expense => {
+    // Get all expenses from the schedule that fall within this week
+    const scheduledExpenseIds = new Set();
+    const scheduleEntries = Object.values(expenseSchedule);
+    const quickExpenseEntries = [];
+    
+    // Separate regular expenses and quick expenses
+    scheduleEntries.forEach(entry => {
+      if (entry.expense_id) {
+        scheduledExpenseIds.add(entry.expense_id);
+      } else if (entry.is_quick_expense && entry.quick_expense_id) {
+        // Create a virtual expense object for quick expenses
+        quickExpenseEntries.push({
+          id: `quick_${entry.quick_expense_id}`, // Unique ID for quick expenses
+          name: entry.expense_name,
+          amount: entry.amount,
+          category: 'quick', // Separate category for quick expenses
+          frequency: 'one-time',
+          is_active: true,
+          is_quick_expense: true,
+          quick_expense_id: entry.quick_expense_id,
+          due_date: entry.due_date,
+          note: entry.note || null
+        });
+      }
+    });
+    
+    // Filter expenses to only include those in the schedule
+    const scheduledExpenses = expenses.filter(expense => {
       if (!expense.is_active) return false;
-
+      return scheduledExpenseIds.has(expense.id);
+    });
+    
+    // Also include expenses that aren't in schedule but should be (fallback for backwards compatibility)
+    const fallbackExpenses = expenses.filter(expense => {
+      if (!expense.is_active) return false;
+      if (scheduledExpenseIds.has(expense.id)) return false; // Already included
+      
+      // Check old override system
+      const dueDateOverride = dueDayOverrides[expense.id];
+      if (dueDateOverride) {
+        const overrideDate = parse(dueDateOverride, 'yyyy-MM-dd', new Date());
+        return weekDays.some(day => isSameDay(day, overrideDate));
+      }
+      
+      // Fallback to calculation
       if (expense.frequency === 'weekly') {
         return true;
       } else if (expense.frequency === 'biweekly') {
-        // Use start_date to determine which weeks the expense applies
         return isBiweeklyWeek(expense.start_date, weekStartStr);
       } else if (expense.due_day) {
-        // Check if effective due_day falls within this week (handles 31st in shorter months)
         return weekDays.some(day => {
           const effectiveDueDay = getEffectiveDueDay(expense.due_day, day);
           return day.getDate() === effectiveDueDay;
@@ -202,12 +307,18 @@ export default function Dashboard({ expenses, income, selectedDate }) {
       }
       return false;
     });
-  }, [expenses, weekDays, weekStartStr]);
+    
+    // Combine all expenses: scheduled regular expenses + fallback expenses + quick expenses
+    return [...scheduledExpenses, ...fallbackExpenses, ...quickExpenseEntries];
+  }, [expenses, weekDays, weekStartStr, expenseSchedule, dueDayOverrides]);
 
   const summaries = useMemo(() => {
     const result = {};
+    // Filter out quick expenses from regular categories
+    const regularExpenses = weeklyExpenses.filter(e => !e.is_quick_expense);
+    
     for (const category of Object.keys(categoryConfig)) {
-      const categoryExpenses = weeklyExpenses.filter(e => e.category === category);
+      const categoryExpenses = regularExpenses.filter(e => e.category === category);
       result[category] = {
         count: categoryExpenses.length,
         total: categoryExpenses.reduce((sum, e) => sum + getActualExpense(e), 0),
@@ -215,6 +326,21 @@ export default function Dashboard({ expenses, income, selectedDate }) {
       };
     }
     return result;
+  }, [weeklyExpenses, expenseOverrides]);
+
+  // Separate summary for quick expenses
+  const quickExpensesSummary = useMemo(() => {
+    const quickExpensesList = weeklyExpenses.filter(e => e.is_quick_expense);
+    return {
+      count: quickExpensesList.length,
+      total: quickExpensesList.reduce((sum, e) => sum + getActualExpense(e), 0),
+      expenses: quickExpensesList.sort((a, b) => {
+        // Sort by due_date
+        const dateA = a.due_date ? new Date(a.due_date) : new Date(0);
+        const dateB = b.due_date ? new Date(b.due_date) : new Date(0);
+        return dateA - dateB;
+      }),
+    };
   }, [weeklyExpenses, expenseOverrides]);
 
   const toggleCategory = (category) => {
@@ -234,10 +360,15 @@ export default function Dashboard({ expenses, income, selectedDate }) {
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   };
 
-  const totalExpenses = Object.values(summaries).reduce((sum, s) => sum + s.total, 0);
+  // Total expenses includes both regular expenses and quick expenses
+  const totalExpenses = Object.values(summaries).reduce((sum, s) => sum + s.total, 0) + quickExpensesSummary.total;
+  // Note: totalExpenses includes both regular expenses AND quick expenses (as virtual expense objects)
   const totalAvailable = weeklyIncome + rollover;
   const discretionary = totalAvailable - totalExpenses;
-  const remaining = discretionary - totalQuickExpenses;
+  // Remaining = discretionary (quick expenses are already included in totalExpenses)
+  // This matches WeeklyView: remaining = (weeklyIncome + rollover) - totalExpenses
+  // Where totalExpenses includes both regular and quick expenses from the schedule
+  const remaining = discretionary;
 
   // Calculate NEXT week's projected budget
   const nextWeekDays = useMemo(() => {
@@ -298,6 +429,11 @@ export default function Dashboard({ expenses, income, selectedDate }) {
   const nextWeekProjectedRemaining = nextWeekBaseRemaining + Math.max(remaining, 0);
   // Warn if next week's base budget is negative (expenses exceed income)
   const isNextWeekWarning = nextWeekBaseRemaining < 0;
+  
+  // Calculate safe to spend: remaining minus next week's deficit (if any)
+  // If next week has a deficit, we need to reserve that amount
+  // If next week is positive, we can spend all of this week's remaining
+  const safeToSpend = Math.max(0, remaining + nextWeekBaseRemaining);
 
   return (
     <div className="dashboard">
@@ -327,11 +463,21 @@ export default function Dashboard({ expenses, income, selectedDate }) {
               <span className="amount">${Math.round(totalAvailable).toLocaleString()}</span>
             </div>
           </div>
+          <div className="income-card safe-to-spend">
+            <span className="material-symbols-rounded">savings</span>
+            <div className="income-info">
+              <span className="label">Safe to Spend</span>
+              <span className={`amount ${safeToSpend >= 0 ? 'positive' : 'negative'}`}>
+                ${Math.round(safeToSpend).toLocaleString()}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="category-cards">
-        {Object.entries(categoryConfig).map(([key, config]) => {
+        {['bill', 'debt', 'living', 'savings'].map((key) => {
+          const config = categoryConfig[key];
           const isExpanded = expandedCategory === key;
           const categoryData = summaries[key];
           
@@ -343,9 +489,9 @@ export default function Dashboard({ expenses, income, selectedDate }) {
             >
               <div className="card-header" onClick={() => toggleCategory(key)}>
                 <div className="header-left">
-                  <span className="material-symbols-rounded icon">{config.icon}</span>
-                  <span className="label">{config.label}</span>
-                </div>
+              <span className="material-symbols-rounded icon">{config.icon}</span>
+              <span className="label">{config.label}</span>
+            </div>
                 <span className={`material-symbols-rounded expand-icon ${isExpanded ? 'rotated' : ''}`}>
                   expand_more
                 </span>
@@ -395,24 +541,82 @@ export default function Dashboard({ expenses, income, selectedDate }) {
             </div>
           );
         })}
+        
+        {/* Quick Expenses Card */}
+        <div 
+          className={`category-card ${expandedCategory === 'quick' ? 'expanded' : ''}`} 
+          style={{ '--accent': '#f59e0b' }}
+        >
+          <div className="card-header" onClick={() => toggleCategory('quick')}>
+            <div className="header-left">
+              <span className="material-symbols-rounded icon">receipt</span>
+              <span className="label">Quick Expenses</span>
+            </div>
+            <span className={`material-symbols-rounded expand-icon ${expandedCategory === 'quick' ? 'rotated' : ''}`}>
+              expand_more
+            </span>
+          </div>
+          <div className="card-body" onClick={() => toggleCategory('quick')}>
+            <span className="amount">-${quickExpensesSummary.total.toLocaleString()}</span>
+            <span className="count">{quickExpensesSummary.count} items</span>
+          </div>
+          
+          {expandedCategory === 'quick' && quickExpensesSummary.expenses.length > 0 && (
+            <div className="card-details">
+              {quickExpensesSummary.expenses.map(expense => {
+                const actualAmount = getActualExpense(expense);
+                const expenseDate = expense.due_date ? format(parse(expense.due_date, 'yyyy-MM-dd', new Date()), 'MMM d') : '';
+                return (
+                  <div key={expense.id} className="expense-detail-row">
+                    <div className="expense-detail-info">
+                      <span className="expense-name">{expense.name}</span>
+                      <span className="expense-meta">
+                        {expenseDate && ` • ${expenseDate}`}
+                        {expense.note && ` • ${expense.note}`}
+                      </span>
+                    </div>
+                    <span className="expense-detail-amount">
+                      -${actualAmount.toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {expandedCategory === 'quick' && quickExpensesSummary.expenses.length === 0 && (
+            <div className="card-details empty">
+              <span className="no-expenses">No quick expenses this week</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="balance-bar">
         <div className="balance-info">
-          <div className="balance-item budgeted">
-            <span className="label">
-              <span className="color-dot budgeted"></span>
-              Budgeted
-            </span>
-            <span className="amount">-${totalExpenses.toLocaleString()}</span>
-          </div>
-          <div className="balance-item quick">
-            <span className="label">
-              <span className="color-dot quick"></span>
-              Quick Exp
-            </span>
-            <span className="amount">-${Math.round(totalQuickExpenses).toLocaleString()}</span>
-          </div>
+          {['bill', 'debt', 'living', 'savings'].map((key) => {
+            const config = categoryConfig[key];
+            const categoryData = summaries[key];
+            if (categoryData.total === 0) return null;
+            return (
+              <div key={key} className="balance-item" style={{ '--accent': config.color }}>
+                <span className="label">
+                  <span className="color-dot" style={{ backgroundColor: config.color }}></span>
+                  {config.label}
+                </span>
+                <span className="amount">-${categoryData.total.toLocaleString()}</span>
+              </div>
+            );
+          })}
+          {quickExpensesSummary.total > 0 && (
+            <div className="balance-item" style={{ '--accent': '#f59e0b' }}>
+              <span className="label">
+                <span className="color-dot" style={{ backgroundColor: '#f59e0b' }}></span>
+                Quick Expenses
+              </span>
+              <span className="amount">-${quickExpensesSummary.total.toLocaleString()}</span>
+            </div>
+          )}
           <div className="balance-item remaining-highlight">
             <span className="label">
               <span className="color-dot remaining"></span>
@@ -422,19 +626,45 @@ export default function Dashboard({ expenses, income, selectedDate }) {
               ${Math.round(remaining).toLocaleString()}
             </span>
           </div>
+          <div className="balance-item safe-to-spend-highlight">
+            <span className="label">
+              <span className="material-symbols-rounded" style={{ fontSize: '1rem', verticalAlign: 'middle' }}>savings</span>
+              Safe to Spend
+            </span>
+            <span className={`amount ${safeToSpend >= 0 ? 'positive' : 'negative'}`}>
+              ${Math.round(safeToSpend).toLocaleString()}
+            </span>
+          </div>
         </div>
         <div className="budget-bar-container">
           {totalAvailable > 0 && (
             <>
-              <div 
-                className="budget-bar-segment budgeted"
-                style={{ width: `${Math.min((totalExpenses / totalAvailable) * 100, 100)}%` }}
-              />
-              <div 
-                className="budget-bar-segment quick"
-                style={{ width: `${Math.min((totalQuickExpenses / totalAvailable) * 100, 100 - (totalExpenses / totalAvailable) * 100)}%` }}
-              />
-              <div 
+              {['bill', 'debt', 'living', 'savings'].map((key) => {
+                const config = categoryConfig[key];
+                const categoryData = summaries[key];
+                if (categoryData.total === 0) return null;
+                const percentage = (categoryData.total / totalAvailable) * 100;
+                return (
+                  <div
+                    key={key}
+                    className="budget-bar-segment"
+                    style={{
+                      width: `${Math.min(percentage, 100)}%`,
+                      backgroundColor: config.color
+                    }}
+                  />
+                );
+              })}
+              {quickExpensesSummary.total > 0 && (
+                <div
+                  className="budget-bar-segment"
+                  style={{
+                    width: `${Math.min((quickExpensesSummary.total / totalAvailable) * 100, 100)}%`,
+                    backgroundColor: '#f59e0b'
+                  }}
+                />
+              )}
+              <div
                 className="budget-bar-segment remaining"
                 style={{ width: `${Math.max((remaining / totalAvailable) * 100, 0)}%` }}
               />
@@ -442,14 +672,24 @@ export default function Dashboard({ expenses, income, selectedDate }) {
           )}
         </div>
         <div className="bar-legend">
-          <span className="legend-item">
-            <span className="color-dot budgeted"></span>
-            {totalAvailable > 0 ? Math.round((totalExpenses / totalAvailable) * 100) : 0}% Budgeted
-          </span>
-          <span className="legend-item">
-            <span className="color-dot quick"></span>
-            {totalAvailable > 0 ? Math.round((totalQuickExpenses / totalAvailable) * 100) : 0}% Quick
-          </span>
+          {['bill', 'debt', 'living', 'savings'].map((key) => {
+            const config = categoryConfig[key];
+            const categoryData = summaries[key];
+            if (categoryData.total === 0) return null;
+            const percentage = totalAvailable > 0 ? Math.round((categoryData.total / totalAvailable) * 100) : 0;
+            return (
+              <span key={key} className="legend-item">
+                <span className="color-dot" style={{ backgroundColor: config.color }}></span>
+                {percentage}% {config.label}
+              </span>
+            );
+          })}
+          {quickExpensesSummary.total > 0 && (
+            <span className="legend-item">
+              <span className="color-dot" style={{ backgroundColor: '#f59e0b' }}></span>
+              {totalAvailable > 0 ? Math.round((quickExpensesSummary.total / totalAvailable) * 100) : 0}% Quick Expenses
+            </span>
+          )}
           <span className="legend-item">
             <span className="color-dot remaining"></span>
             {totalAvailable > 0 ? Math.round((Math.max(remaining, 0) / totalAvailable) * 100) : 0}% Remaining

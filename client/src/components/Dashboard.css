@@ -41,6 +41,28 @@
   background: linear-gradient(135deg, var(--surface-elevated) 0%, rgba(99, 102, 241, 0.1) 100%);
 }
 
+.income-card.safe-to-spend {
+  border-left-color: var(--color-savings);
+  background: linear-gradient(135deg, var(--surface-elevated) 0%, rgba(6, 182, 212, 0.1) 100%);
+}
+
+.income-card.safe-to-spend > .material-symbols-rounded {
+  color: var(--color-savings);
+}
+
+.income-card.safe-to-spend .income-info .amount.negative {
+  color: var(--color-debt);
+}
+
+.income-card.safe-to-spend {
+  border-left-color: var(--color-savings);
+  background: linear-gradient(135deg, var(--surface-elevated) 0%, rgba(6, 182, 212, 0.1) 100%);
+}
+
+.income-card.safe-to-spend .amount.negative {
+  color: var(--color-debt);
+}
+
 .income-card > .material-symbols-rounded {
   font-size: 1.5rem;
   color: var(--color-savings);
@@ -386,6 +408,26 @@
 }
 
 .balance-item.remaining-highlight .amount {
+  font-size: 1.75rem;
+}
+
+.balance-item.safe-to-spend-highlight {
+  background: rgba(34, 197, 94, 0.15);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin: -0.5rem 0;
+  border: 2px solid rgba(34, 197, 94, 0.4);
+}
+
+.balance-item.safe-to-spend-highlight .label {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--text-primary);
+  gap: 0.25rem;
+}
+
+.balance-item.safe-to-spend-highlight .amount {
   font-size: 1.75rem;
 }
 

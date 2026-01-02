@@ -46,26 +46,13 @@ dbConfig.password = String(dbConfig.password);
 const pool = new Pool(dbConfig);
 
 // Test connection
-pool.on('connect', (client) => {
-  console.log('✅ Connected to PostgreSQL database');
-  console.log(`   Database: ${dbConfig.database} on ${dbConfig.host}:${dbConfig.port}`);
+pool.on('connect', () => {
+  console.log('Connected to PostgreSQL database');
 });
 
-// Test initial connection
-pool.query('SELECT NOW() as current_time')
-  .then(result => {
-    console.log('✅ PostgreSQL connection test successful');
-    console.log(`   Server time: ${result.rows[0].current_time}`);
-  })
-  .catch(err => {
-    console.error('❌ PostgreSQL connection test failed:', err.message);
-    console.error('   Check your .env file and database settings');
-  });
-
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle PostgreSQL client:', err.message);
-  console.error('Full error:', err);
-  // Don't exit - let the app continue, errors will be handled per-request
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
 });
 
 // Initialize schema
@@ -91,9 +78,9 @@ const initializeSchema = async () => {
 
 // Run migrations
 const runMigrations = async () => {
-  let client;
+  const client = await pool.connect();
   try {
-    client = await pool.connect();
+    await client.query('BEGIN');
     
     // Migration: Add start_date column to income table if it doesn't exist
     try {
@@ -108,9 +95,6 @@ const runMigrations = async () => {
       }
     } catch (e) {
       // Column might already exist or table doesn't exist yet
-      if (e.code !== '42P01') { // Ignore "relation does not exist" errors
-        console.log('Migration check (income.start_date):', e.message);
-      }
     }
 
     // Migration: Add start_date column to expenses table if it doesn't exist
@@ -126,9 +110,6 @@ const runMigrations = async () => {
       }
     } catch (e) {
       // Column might already exist or table doesn't exist yet
-      if (e.code !== '42P01') {
-        console.log('Migration check (expenses.start_date):', e.message);
-      }
     }
 
     // Migration: Add amount_paid column to paid_expenses for partial payments
@@ -153,9 +134,6 @@ const runMigrations = async () => {
       }
     } catch (e) {
       // Column might already exist or table doesn't exist yet
-      if (e.code !== '42P01') {
-        console.log('Migration check (paid_expenses.amount_paid):', e.message);
-      }
     }
 
     // Migration: Create weekly_due_days table if it doesn't exist
@@ -174,35 +152,27 @@ const runMigrations = async () => {
       console.log('Created weekly_due_days table');
     } catch (e) {
       // Table might already exist, that's ok
-      if (e.code !== '42P07') { // Ignore "relation already exists" errors
-        console.log('weekly_due_days table check:', e.message);
-      }
+      console.log('weekly_due_days table check completed');
     }
 
+    await client.query('COMMIT');
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Migration error:', error.message);
-    console.error('Error code:', error.code);
-    console.error('Full error:', error);
   } finally {
-    if (client) {
-      client.release();
-    }
+    client.release();
   }
 };
 
 // Initialize on module load (but don't block)
 // Schema should already be created, so we just run migrations
-setTimeout(() => {
-  initializeSchema().then(() => {
-    runMigrations().catch(err => {
-      console.error('Migration error (non-fatal):', err.message);
-      console.error('Error details:', err);
-    });
-  }).catch(err => {
-    console.error('Schema initialization error (non-fatal):', err.message);
-    console.error('Error details:', err);
+initializeSchema().then(() => {
+  runMigrations().catch(err => {
+    console.error('Migration error (non-fatal):', err.message);
   });
-}, 100); // Small delay to ensure pool is ready
+}).catch(err => {
+  console.error('Schema initialization error (non-fatal):', err.message);
+});
 
 // Helper to convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
 const convertPlaceholders = (query) => {
@@ -246,48 +216,6 @@ const db = {
   // Exec-like method for multiple statements
   exec: async (sql) => {
     await pool.query(sql);
-  },
-  
-  // Transaction method for running multiple queries in a transaction
-  transaction: async (callback) => {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const result = await callback({
-        query: (text, params) => {
-          const convertedQuery = convertPlaceholders(text);
-          return client.query(convertedQuery, params);
-        },
-        prepare: (text) => {
-          const queryText = convertPlaceholders(text);
-          return {
-            get: async (...params) => {
-              const result = await client.query(queryText, params);
-              return result.rows[0] || null;
-            },
-            all: async (...params) => {
-              const result = await client.query(queryText, params);
-              return result.rows;
-            },
-            run: async (...params) => {
-              const result = await client.query(queryText, params);
-              return {
-                lastInsertRowid: result.rows[0]?.id || null,
-                changes: result.rowCount || 0,
-                rows: result.rows
-              };
-            }
-          };
-        }
-      });
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
   },
   
   // Close connection pool

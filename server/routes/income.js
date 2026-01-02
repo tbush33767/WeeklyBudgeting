@@ -4,9 +4,9 @@ import db from '../db/database.js';
 const router = Router();
 
 // Get all income sources
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const income = db.prepare('SELECT * FROM income ORDER BY name').all();
+    const income = await db.prepare('SELECT * FROM income ORDER BY name').all();
     res.json(income);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -14,9 +14,9 @@ router.get('/', (req, res) => {
 });
 
 // Get total weekly income (calculated)
-router.get('/weekly-total', (req, res) => {
+router.get('/weekly-total', async (req, res) => {
   try {
-    const incomes = db.prepare('SELECT * FROM income WHERE is_active = 1').all();
+    const incomes = await db.prepare('SELECT * FROM income WHERE is_active = 1').all();
     
     // Calculate weekly equivalent for each income
     let weeklyTotal = 0;
@@ -37,7 +37,7 @@ router.get('/weekly-total', (req, res) => {
 });
 
 // Create a new income source
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, amount, frequency, pay_day, start_date } = req.body;
     
@@ -48,11 +48,11 @@ router.post('/', (req, res) => {
     const stmt = db.prepare(`
       INSERT INTO income (name, amount, frequency, pay_day, start_date, is_active)
       VALUES (?, ?, ?, ?, ?, 1)
+      RETURNING *
     `);
     
-    const result = stmt.run(name, amount, frequency, pay_day ?? 5, start_date || null);
-    
-    const newIncome = db.prepare('SELECT * FROM income WHERE id = ?').get(result.lastInsertRowid);
+    const result = await stmt.run(name, amount, frequency, pay_day ?? 5, start_date || null);
+    const newIncome = result.rows?.[0] || await db.prepare('SELECT * FROM income WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newIncome);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -60,12 +60,12 @@ router.post('/', (req, res) => {
 });
 
 // Update an income source
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, amount, frequency, pay_day, start_date, is_active } = req.body;
 
-    const existing = db.prepare('SELECT * FROM income WHERE id = ?').get(id);
+    const existing = await db.prepare('SELECT * FROM income WHERE id = ?').get(id);
     if (!existing) {
       return res.status(404).json({ error: 'Income source not found' });
     }
@@ -74,9 +74,10 @@ router.put('/:id', (req, res) => {
       UPDATE income 
       SET name = ?, amount = ?, frequency = ?, pay_day = ?, start_date = ?, is_active = ?
       WHERE id = ?
+      RETURNING *
     `);
     
-    stmt.run(
+    const result = await stmt.run(
       name ?? existing.name,
       amount ?? existing.amount,
       frequency ?? existing.frequency,
@@ -86,7 +87,7 @@ router.put('/:id', (req, res) => {
       id
     );
 
-    const updated = db.prepare('SELECT * FROM income WHERE id = ?').get(id);
+    const updated = result.rows?.[0] || await db.prepare('SELECT * FROM income WHERE id = ?').get(id);
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -94,16 +95,16 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete an income source
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const existing = db.prepare('SELECT * FROM income WHERE id = ?').get(id);
+    const existing = await db.prepare('SELECT * FROM income WHERE id = ?').get(id);
     if (!existing) {
       return res.status(404).json({ error: 'Income source not found' });
     }
 
-    db.prepare('DELETE FROM income WHERE id = ?').run(id);
+    await db.prepare('DELETE FROM income WHERE id = ?').run(id);
     res.json({ message: 'Income source deleted', id: parseInt(id) });
   } catch (error) {
     res.status(500).json({ error: error.message });

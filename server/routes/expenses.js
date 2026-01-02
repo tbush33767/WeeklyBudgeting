@@ -11,9 +11,9 @@ const getEffectiveDueDay = (dueDay, date) => {
 };
 
 // Get all expenses
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const expenses = db.prepare('SELECT * FROM expenses ORDER BY category, name').all();
+    const expenses = await db.prepare('SELECT * FROM expenses ORDER BY category, name').all();
     res.json(expenses);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -21,7 +21,7 @@ router.get('/', (req, res) => {
 });
 
 // Get expenses for a specific week (based on date parameter)
-router.get('/weekly/:date', (req, res) => {
+router.get('/weekly/:date', async (req, res) => {
   try {
     const { date } = req.params;
     const targetDate = new Date(date);
@@ -37,7 +37,7 @@ router.get('/weekly/:date', (req, res) => {
     endOfWeek.setHours(23, 59, 59, 999);
 
     // Get all active expenses
-    const allExpenses = db.prepare('SELECT * FROM expenses WHERE is_active = 1').all();
+    const allExpenses = await db.prepare('SELECT * FROM expenses WHERE is_active = 1').all();
     
     // Filter expenses that fall within this week
     const weeklyExpenses = allExpenses.filter(expense => {
@@ -81,7 +81,7 @@ router.get('/weekly/:date', (req, res) => {
 });
 
 // Create a new expense
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, amount, category, frequency, due_day, start_date } = req.body;
     
@@ -92,11 +92,11 @@ router.post('/', (req, res) => {
     const stmt = db.prepare(`
       INSERT INTO expenses (name, amount, category, frequency, due_day, start_date, is_active)
       VALUES (?, ?, ?, ?, ?, ?, 1)
+      RETURNING *
     `);
     
-    const result = stmt.run(name, amount, category, frequency, due_day || null, start_date || null);
-    
-    const newExpense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(result.lastInsertRowid);
+    const result = await stmt.run(name, amount, category, frequency, due_day || null, start_date || null);
+    const newExpense = result.rows?.[0] || await db.prepare('SELECT * FROM expenses WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newExpense);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -104,12 +104,12 @@ router.post('/', (req, res) => {
 });
 
 // Update an expense
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, amount, category, frequency, due_day, start_date, is_active } = req.body;
 
-    const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
+    const existing = await db.prepare('SELECT * FROM expenses WHERE id = $1').get(id);
     if (!existing) {
       return res.status(404).json({ error: 'Expense not found' });
     }
@@ -118,9 +118,10 @@ router.put('/:id', (req, res) => {
       UPDATE expenses 
       SET name = ?, amount = ?, category = ?, frequency = ?, due_day = ?, start_date = ?, is_active = ?
       WHERE id = ?
+      RETURNING *
     `);
     
-    stmt.run(
+    const result = await stmt.run(
       name ?? existing.name,
       amount ?? existing.amount,
       category ?? existing.category,
@@ -131,7 +132,7 @@ router.put('/:id', (req, res) => {
       id
     );
 
-    const updated = db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
+    const updated = result.rows?.[0] || await db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -139,16 +140,16 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete an expense
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
+    const existing = await db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
     if (!existing) {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
+    await db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
     res.json({ message: 'Expense deleted', id: parseInt(id) });
   } catch (error) {
     res.status(500).json({ error: error.message });

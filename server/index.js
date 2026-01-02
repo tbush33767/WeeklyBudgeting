@@ -10,6 +10,10 @@ import weeklyExpensesRouter from './routes/weeklyExpenses.js';
 import quickExpensesRouter from './routes/quickExpenses.js';
 import balancesRouter from './routes/balances.js';
 import backupRouter from './routes/backup.js';
+import dueDaysRouter from './routes/dueDays.js';
+import scheduleRouter from './routes/schedule.js';
+
+console.log('✅ All routes imported successfully');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -29,13 +33,35 @@ app.use('/api/weekly-expenses', weeklyExpensesRouter);
 app.use('/api/quick-expenses', quickExpensesRouter);
 app.use('/api/balances', balancesRouter);
 app.use('/api/backup', backupRouter);
+app.use('/api/due-days', dueDaysRouter);
+app.use('/api/schedule', scheduleRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// Database connection test
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const db = (await import('./db/database.js')).default;
+    const result = await db.query('SELECT NOW() as current_time, version() as pg_version');
+    res.json({ 
+      status: 'connected', 
+      time: result.rows[0].current_time,
+      version: result.rows[0].pg_version.split(' ')[0] + ' ' + result.rows[0].pg_version.split(' ')[1]
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'error', 
+      message: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`Access from other devices: http://<your-ip>:${PORT}`);
 });
 

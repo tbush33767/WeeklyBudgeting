@@ -61,13 +61,12 @@ export default function ExpenseForm({ expense, onSubmit, onCancel }) {
       ...formData,
       amount: parseFloat(formData.amount),
       due_day: formData.due_day ? parseInt(formData.due_day) : null,
-      start_date: formData.frequency === 'biweekly' ? formData.start_date : null,
+      start_date: formData.start_date || null,
       is_active: formData.is_active ? 1 : 0,
     });
   };
 
   const showDueDay = formData.frequency === 'monthly' || formData.frequency === 'one-time';
-  const showStartDate = formData.frequency === 'biweekly';
 
   return (
     <div className="expense-form-overlay">
@@ -167,22 +166,24 @@ export default function ExpenseForm({ expense, onSubmit, onCancel }) {
           </div>
         )}
 
-        {showStartDate && (
-          <div className="form-group">
-            <label htmlFor="start_date">First Due Date</label>
-            <p className="form-hint">Select a date to sync the biweekly schedule</p>
-            <div className="input-with-icon">
-              <span className="material-symbols-rounded input-icon">calendar_today</span>
-              <input
-                type="date"
-                id="start_date"
-                name="start_date"
-                value={formData.start_date}
-                onChange={handleChange}
-              />
-            </div>
+        <div className="form-group">
+          <label htmlFor="start_date">Start Date</label>
+          <p className="form-hint">
+            {formData.frequency === 'biweekly' 
+              ? 'Select a date to sync the biweekly schedule'
+              : 'Date when this expense first becomes active (prevents historical carryovers)'}
+          </p>
+          <div className="input-with-icon">
+            <span className="material-symbols-rounded input-icon">calendar_today</span>
+            <input
+              type="date"
+              id="start_date"
+              name="start_date"
+              value={formData.start_date}
+              onChange={handleChange}
+            />
           </div>
-        )}
+        </div>
 
         {expense && (
           <div className="form-group checkbox-group">

@@ -1,4 +1,7 @@
-const API_BASE = 'http://localhost:3001/api';
+// Use the same hostname as the frontend, but on the configured backend port for the API
+// Default to 3001 if VITE_API_PORT is not set (for backwards compatibility)
+const API_PORT = import.meta.env.VITE_API_PORT || 3001;
+const API_BASE = `http://${window.location.hostname}:${API_PORT}/api`;
 
 export async function fetchExpenses() {
   const response = await fetch(`${API_BASE}/expenses`);
@@ -113,6 +116,16 @@ export async function deletePayment(paymentId) {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Failed to delete payment');
+  return response.json();
+}
+
+export async function updatePaymentDate(paymentId, paidDate) {
+  const response = await fetch(`${API_BASE}/paid/payment/${paymentId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paid_date: paidDate }),
+  });
+  if (!response.ok) throw new Error('Failed to update payment date');
   return response.json();
 }
 
@@ -247,6 +260,90 @@ export async function importBackup(data, clearExisting = false) {
     body: JSON.stringify({ data, clearExisting }),
   });
   if (!response.ok) throw new Error('Failed to import backup');
+  return response.json();
+}
+
+// Due Day Override API
+export async function fetchDueDayOverride(expenseId, weekStart) {
+  const response = await fetch(`${API_BASE}/due-days/${expenseId}/${weekStart}`);
+  if (!response.ok) throw new Error('Failed to fetch due day override');
+  const data = await response.json();
+  return data; // Returns null if no override exists
+}
+
+export async function fetchDueDayOverrides(weekStart) {
+  const response = await fetch(`${API_BASE}/due-days/week/${weekStart}`);
+  if (!response.ok) throw new Error('Failed to fetch due day overrides');
+  return response.json();
+}
+
+export async function updateDueDayOverride(expenseId, weekStart, dueDate) {
+  const response = await fetch(`${API_BASE}/due-days/${expenseId}/${weekStart}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ due_date: dueDate }),
+  });
+  if (!response.ok) throw new Error('Failed to update due date override');
+  return response.json();
+}
+
+export async function deleteDueDayOverride(expenseId, weekStart) {
+  const response = await fetch(`${API_BASE}/due-days/${expenseId}/${weekStart}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete due day override');
+  return response.json();
+}
+
+// ===== SCHEDULE API =====
+
+// Expense Schedule
+export async function fetchExpenseSchedule(weekStart) {
+  const response = await fetch(`${API_BASE}/schedule/expenses/${weekStart}`);
+  if (!response.ok) throw new Error('Failed to fetch expense schedule');
+  return response.json();
+}
+
+export async function updateExpenseSchedule(expenseId, weekStart, dueDate, amount) {
+  const response = await fetch(`${API_BASE}/schedule/expenses/${expenseId}/${weekStart}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ due_date: dueDate, amount }),
+  });
+  if (!response.ok) throw new Error('Failed to update expense schedule');
+  return response.json();
+}
+
+export async function deleteExpenseSchedule(expenseId, weekStart) {
+  const response = await fetch(`${API_BASE}/schedule/expenses/${expenseId}/${weekStart}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete expense schedule');
+  return response.json();
+}
+
+// Income Schedule
+export async function fetchIncomeSchedule(weekStart) {
+  const response = await fetch(`${API_BASE}/schedule/income/${weekStart}`);
+  if (!response.ok) throw new Error('Failed to fetch income schedule');
+  return response.json();
+}
+
+export async function updateIncomeSchedule(incomeId, weekStart, payDate, amount) {
+  const response = await fetch(`${API_BASE}/schedule/income/${incomeId}/${weekStart}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pay_date: payDate, amount }),
+  });
+  if (!response.ok) throw new Error('Failed to update income schedule');
+  return response.json();
+}
+
+export async function deleteIncomeSchedule(incomeId, weekStart) {
+  const response = await fetch(`${API_BASE}/schedule/income/${incomeId}/${weekStart}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete income schedule');
   return response.json();
 }
 

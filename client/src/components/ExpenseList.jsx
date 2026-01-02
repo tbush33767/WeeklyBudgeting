@@ -89,8 +89,8 @@ export default function ExpenseList({ expenses, onEdit, onDelete }) {
         <div key={category} className="expense-group">
           <h3 className="group-header">
             <span className="header-left">
-              <span className="material-symbols-rounded icon">{categoryConfig[category]?.icon}</span>
-              {categoryConfig[category]?.label || category}
+            <span className="material-symbols-rounded icon">{categoryConfig[category]?.icon}</span>
+            {categoryConfig[category]?.label || category}
             </span>
             <span className="category-total">-${Math.round(categoryTotals[category]).toLocaleString()}</span>
           </h3>

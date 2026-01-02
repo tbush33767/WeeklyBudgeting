@@ -4,10 +4,10 @@ import db from '../db/database.js';
 const router = Router();
 
 // Get all weekly income overrides for a specific week
-router.get('/:weekStart', (req, res) => {
+router.get('/:weekStart', async (req, res) => {
   try {
     const { weekStart } = req.params;
-    const incomeOverrides = db.prepare('SELECT * FROM weekly_income WHERE week_start = ?').all(weekStart);
+    const incomeOverrides = await db.prepare('SELECT * FROM weekly_income WHERE week_start = ?').all(weekStart);
     res.json(incomeOverrides);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -15,7 +15,7 @@ router.get('/:weekStart', (req, res) => {
 });
 
 // Set or update actual income for a specific week
-router.put('/:incomeId/:weekStart', (req, res) => {
+router.put('/:incomeId/:weekStart', async (req, res) => {
   try {
     const { incomeId, weekStart } = req.params;
     const { actual_amount, received } = req.body;
@@ -30,23 +30,25 @@ router.put('/:incomeId/:weekStart', (req, res) => {
       ON CONFLICT(income_id, week_start) DO UPDATE SET 
         actual_amount = ?,
         received = ?
+      RETURNING *
     `);
     
     const receivedVal = received !== undefined ? (received ? 1 : 0) : 1;
-    stmt.run(incomeId, weekStart, actual_amount, receivedVal, actual_amount, receivedVal);
+    const result = await stmt.run(incomeId, weekStart, actual_amount, receivedVal, actual_amount, receivedVal);
+    const updated = result.rows?.[0] || { income_id: parseInt(incomeId), week_start: weekStart, actual_amount, received: receivedVal };
     
-    res.json({ income_id: parseInt(incomeId), week_start: weekStart, actual_amount, received: receivedVal });
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // Delete income override for a specific week (reset to default)
-router.delete('/:incomeId/:weekStart', (req, res) => {
+router.delete('/:incomeId/:weekStart', async (req, res) => {
   try {
     const { incomeId, weekStart } = req.params;
     
-    db.prepare('DELETE FROM weekly_income WHERE income_id = ? AND week_start = ?').run(incomeId, weekStart);
+    await db.prepare('DELETE FROM weekly_income WHERE income_id = ? AND week_start = ?').run(incomeId, weekStart);
     
     res.json({ income_id: parseInt(incomeId), week_start: weekStart, deleted: true });
   } catch (error) {
